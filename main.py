@@ -17,13 +17,12 @@ def processar_uma_serie(path_da_serie, nomes_dos_arquivos_dcm, pasta_resultados)
     for nome_arquivo in nomes_dos_arquivos_dcm:
         caminho_completo = os.path.join(path_da_serie, nome_arquivo)
         try:
-            # Bloco de 'warnings' removido
             dcm = pydicom.dcmread(caminho_completo)
             
             if hasattr(dcm, 'pixel_array'):
                 fatias.append(dcm)
         except Exception:
-            pass # Ignora arquivos que não são DICOM (ex: .txt, .DS_Store)
+            pass # Ignora arquivos que não são DICOM
 
     if not fatias:
         print("Nenhuma fatia DICOM válida encontrada nesta pasta.\n")
@@ -48,7 +47,7 @@ def processar_uma_serie(path_da_serie, nomes_dos_arquivos_dcm, pasta_resultados)
         return # Pula esta série (muito comum em séries mistas)
 
 
-    # 5. "SALVAR" UMA FATIA (SEM MOSTRAR)
+    # 5. "SALVAR" UMA FATIA 
     if volume_3d_bruto is not None:
         fatia_central_idx = volume_3d_bruto.shape[0] // 2
         fatia_central = volume_3d_bruto[fatia_central_idx, :, :]
@@ -59,18 +58,13 @@ def processar_uma_serie(path_da_serie, nomes_dos_arquivos_dcm, pasta_resultados)
         plt.figure() # Cria a figura "na memória"
         plt.imshow(fatia_central, cmap='gray')
         
-        # Tenta pegar o nome do paciente da pasta "avô"
-        try:
-            nome_do_paciente = os.path.basename(os.path.dirname(os.path.dirname(path_da_serie)))
-        except Exception:
-            nome_do_paciente = "paciente_desconhecido"
             
         nome_da_serie = os.path.basename(path_da_serie)
         # Limpa o nome da série para criar um nome de arquivo seguro
         nome_da_serie_limpo = "".join(c for c in nome_da_serie if c.isalnum() or c in ('-', '_'))[:50]
         
         # Cria um nome de arquivo único
-        nome_do_arquivo = f"paciente_{nome_do_paciente}_serie_{nome_da_serie_limpo}_fatia_{fatia_central_idx}.png"
+        nome_do_arquivo = f"{nome_da_serie_limpo}_fatia_{fatia_central_idx}.png"
         caminho_para_salvar = os.path.join(pasta_resultados, nome_do_arquivo)
         
         try:
