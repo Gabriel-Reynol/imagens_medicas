@@ -3,48 +3,115 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-# 1. Defina o caminho para a pasta da série DICOM de UM paciente
+def processar_uma_serie(path_da_serie, nomes_dos_arquivos_dcm, pasta_resultados):
+    """
+    Esta função processa UMA série:
+    1. Lê os arquivos DICOM.
+    2. Ordena e empilha em um volume 3D.
+    3. SALVA a fatia central como uma imagem PNG, sem mostrar na tela.
+    """
+    print(f"--- Processando Série: {path_da_serie} ---")
+    
+    # 2. Lendo todos os arquivos DICOM da pasta
+    fatias = []
+    for nome_arquivo in nomes_dos_arquivos_dcm:
+        caminho_completo = os.path.join(path_da_serie, nome_arquivo)
+        try:
+            # Bloco de 'warnings' removido
+            dcm = pydicom.dcmread(caminho_completo)
+            
+            if hasattr(dcm, 'pixel_array'):
+                fatias.append(dcm)
+        except Exception:
+            pass # Ignora arquivos que não são DICOM (ex: .txt, .DS_Store)
 
-path_da_serie = 'C:/Users/reyno/USP2025/pacientes/0002265C/1.2.277.1.2.18545002.13862.20160808143815056.1/1.3.12.2.1107.5.1.4.63802.30000016080509244947000016114'
+    if not fatias:
+        print("Nenhuma fatia DICOM válida encontrada nesta pasta.\n")
+        return # Pula para a próxima série
 
-# 2. Ler todos os arquivos DICOM da pasta
-print(f"Lendo arquivos da pasta: {path_da_serie}")
-fatias = []
-for nome_arquivo in os.listdir(path_da_serie):
-    caminho_completo = os.path.join(path_da_serie, nome_arquivo)
+    print(f"Total de {len(fatias)} fatias DICOM lidas.")
+
+    # 3. Ordena as fatias
     try:
-        dcm = pydicom.dcmread(caminho_completo)
-        if hasattr(dcm, 'pixel_array'):
-            fatias.append(dcm)
-    except Exception:
-        pass # Ignora arquivos que não são DICOM válidos
+        fatias.sort(key=lambda x: int(x.InstanceNumber))
+    except Exception as e:
+        print(f"Aviso: Não foi possível ordenar fatias (pode faltar 'InstanceNumber'): {e}")
+        # O código continua, mas pode estar fora de ordem
 
-print(f"Total de {len(fatias)} fatias DICOM lidas.")
-
-# 3. Ordenar as fatias (pelo número da instância/imagem)
-fatias.sort(key=lambda x: int(x.InstanceNumber))
-
-# 4. Empilhar as fatias em um volume 3D (array NumPy)
-# (Isso só funciona se todas as fatias tiverem o mesmo tamanho)
-try:
-    volume_3d_bruto = np.stack([fatia.pixel_array for fatia in fatias])
-    print(f"Volume 3D empilhado! Shape: {volume_3d_bruto.shape}")
-except:
-    print("Erro: As fatias têm tamanhos diferentes e não puderam ser empilhadas.")
+    # 4. Empilha as fatias
+    volume_3d_bruto = None  
+    try:
+        volume_3d_bruto = np.stack([fatia.pixel_array for fatia in fatias])
+        print(f"Volume 3D empilhado! Shape: {volume_3d_bruto.shape}")
+    except Exception as e:
+        print(f"Erro: As fatias têm tamanhos diferentes e não puderam ser empilhadas. {e}")
+        return # Pula esta série (muito comum em séries mistas)
 
 
-# 5. "ABRIR" (VISUALIZAR) UMA FATIA
-# Vamos pegar a fatia do meio do volume 3D para exibir
-
-if 'volume_3d_bruto' in locals():
-    fatia_central_idx = volume_3d_bruto.shape[0] // 2
-    fatia_central = volume_3d_bruto[fatia_central_idx, :, :]
+    # 5. "SALVAR" UMA FATIA (SEM MOSTRAR)
+    if volume_3d_bruto is not None:
+        fatia_central_idx = volume_3d_bruto.shape[0] // 2
+        fatia_central = volume_3d_bruto[fatia_central_idx, :, :]
+        
+        print(f"Fatia central (Índice: {fatia_central_idx}) encontrada.")
+        
+        # --- Lógica de Salvamento ---
+        plt.figure() # Cria a figura "na memória"
+        plt.imshow(fatia_central, cmap='gray')
+        
+        # Tenta pegar o nome do paciente da pasta "avô"
+        try:
+            nome_do_paciente = os.path.basename(os.path.dirname(os.path.dirname(path_da_serie)))
+        except Exception:
+            nome_do_paciente = "paciente_desconhecido"
+            
+        nome_da_serie = os.path.basename(path_da_serie)
+        # Limpa o nome da série para criar um nome de arquivo seguro
+        nome_da_serie_limpo = "".join(c for c in nome_da_serie if c.isalnum() or c in ('-', '_'))[:50]
+        
+        # Cria um nome de arquivo único
+        nome_do_arquivo = f"paciente_{nome_do_paciente}_serie_{nome_da_serie_limpo}_fatia_{fatia_central_idx}.png"
+        caminho_para_salvar = os.path.join(pasta_resultados, nome_do_arquivo)
+        
+        try:
+            # 1. Salva a figura no disco
+            plt.savefig(caminho_para_salvar, bbox_inches='tight')
+            print(f"Imagem salva em: {caminho_para_salvar}")
+            
+            # 2. Fecha a figura (MUITO IMPORTANTE para não vazar memória)
+            plt.close()
+        except Exception as e:
+            print(f"Erro ao salvar imagem: {e}")
+            plt.close() # Garante que a figura feche mesmo se der erro
+        # --- Fim da lógica de Salvamento ---
     
-    print(f"Exibindo a fatia central (Índice: {fatia_central_idx}).")
+    print("\n" + "="*50 + "\n")
+
+
+# --- INÍCIO DO SCRIPT PRINCIPAL ---
+
+# 1. Definindo o caminho RAIZ para TODOS os pacientes
+path_raiz_pacientes = 'C:/Users/reyno/USP2025/pacientes/'
+
+# 1b. Definir e criar a pasta de resultados
+# 'os.getcwd()' pega a pasta atual do seu projeto (ex: 'imagens_medicas')
+path_dos_resultados = os.path.join(os.getcwd(), "resultados_fatias")
+os.makedirs(path_dos_resultados, exist_ok=True) # Cria a pasta se ela não existir
+print(f"Resultados serão salvos em: {path_dos_resultados}\n")
+
+
+print("Iniciando varredura de todas as séries de pacientes...")
+print(f"Pasta raiz: {path_raiz_pacientes}\n")
+
+# 2. O "Explorador" (os.walk)
+for root, dirs, files in os.walk(path_raiz_pacientes):
     
-    plt.imshow(fatia_central, cmap='gray')
-    plt.title(f"Fatia {fatia_central_idx}")
-    plt.axis('off') # Desliga os eixos X e Y
-    plt.show()
+    # Filtra a lista de arquivos para pegar APENAS os .dcm
+    arquivos_dcm = [f for f in files if f.endswith('.dcm')]
+    
+    # Se encontramos arquivos .dcm nesta pasta, ela é uma "série"
+    if arquivos_dcm:
+        # 3. Chama a nossa função para processar esta pasta (série)
+        processar_uma_serie(root, arquivos_dcm, path_dos_resultados)
 
-
+print(f"--- Varredura concluída. Verifique os arquivos em '{path_dos_resultados}'. ---")
