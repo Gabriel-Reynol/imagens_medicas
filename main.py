@@ -13,7 +13,7 @@ PC_PATH = 'C:/Users/reyno/USP2025/pacientes/'
 if os.path.exists(SERVER_PATH):
     print("MODO SERVIDOR")
     CAMINHO_IMG = SERVER_PATH
-    CAMINHO_CSV = '/home/jerogalsky/IC_PAOLA/patIDStudy_contrast_VPaola'
+    CAMINHO_CSV = '/home/jerogalsky/IC_PAOLA/patIDStudy_contrast_VPaola.csv'
     EPOCHS = 30 # Treino Valendo!
 else:
     print("MODO PC LOCAL")
