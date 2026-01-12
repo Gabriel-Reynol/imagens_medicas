@@ -1,154 +1,112 @@
-import pydicom
 import os
 import numpy as np
 import pandas as pd
+import pydicom
+import cv2
+from tensorflow.keras.utils import Sequence
 
-# --- FUNÇÕES DE APOIO (O "Trabalho Pesado") ---
+# --- CONFIGURAÇÕES PARA RESNET50 ---
+IMG_SIZE = 224  # ResNet exige 224x224
+CHANNELS = 3    # ResNet exige 3 canais (RGB)
 
-def carregar_mapa_de_labels(arquivo_csv, coluna_id, coluna_label):
-    """Lê o CSV e cria um dicionário ID -> Label"""
-    try:
-        # encoding latin-1 ajuda a ler arquivos feitos no Excel 
-        df = pd.read_csv(arquivo_csv, encoding='latin-1') 
-        
-        # Garante que IDs duplicados não atrapalhem
-        df = df.drop_duplicates(subset=[coluna_id])
-        
-        # Cria o dicionário
-        mapa = df.set_index(coluna_id)[coluna_label].to_dict()
-        print(f"Planilha lida! {len(mapa)} pacientes no gabarito.")
-        return mapa
-    except Exception as e:
-        print(f"Erro ao ler CSV: {e}")
-        return None
+class MedicalDataGenerator(Sequence):
+    def __init__(self, list_IDs, labels, batch_size=32, shuffle=True):
+        self.batch_size = batch_size
+        self.labels = labels
+        self.list_IDs = list_IDs
+        self.shuffle = shuffle
+        self.on_epoch_end()
 
-def e_uma_serie_valida(lista_de_headers):
-    """Filtra se é uma imagem de tomografia axial útil"""
-    if not lista_de_headers: return False
+    def __len__(self):
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def __getitem__(self, index):
+        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+        X, y = self.__data_generation(list_IDs_temp)
+        return X, y
+
+    def on_epoch_end(self):
+        self.indexes = np.arange(len(self.list_IDs))
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
+
+    def __data_generation(self, list_IDs_temp):
+        # Cria arrays vazios no formato da ResNet (Batch, 224, 224, 3)
+        X = np.empty((self.batch_size, IMG_SIZE, IMG_SIZE, CHANNELS))
+        y = np.empty((self.batch_size), dtype=int)
+
+        for i, folder_path in enumerate(list_IDs_temp):
+            try:
+                # 1. Ler arquivos DICOM
+                files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.dcm')]
+                slices = []
+                for f in files:
+                    try:
+                        ds = pydicom.dcmread(f)
+                        if hasattr(ds, 'pixel_array'): slices.append(ds)
+                    except: pass
+                
+                # Se der erro ou pasta vazia, retorna imagem preta
+                if not slices: raise ValueError("Pasta vazia")
+
+                slices.sort(key=lambda x: int(x.InstanceNumber))
+                
+                # 2. Pegar a FATIA CENTRAL (Lógica 2D)
+                # Sua lógica original: transformar 3D em 2D pegando o meio
+                meio_idx = len(slices) // 2
+                img = slices[meio_idx].pixel_array
+
+                # 3. Processamento para ResNet
+                # Resize para 224x224
+                img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+                
+                # Normalizar (0 a 1)
+                img_norm = (img_resized - np.min(img_resized)) / (np.max(img_resized) - np.min(img_resized) + 1e-8)
+                
+                # Empilhar 3 vezes para virar RGB (Simulado)
+                img_rgb = np.stack([img_norm, img_norm, img_norm], axis=-1)
+
+                X[i,] = img_rgb
+                y[i] = self.labels[folder_path]
+
+            except Exception as e:
+                # print(f"Erro em {folder_path}: {e}") # Descomente para debugar
+                X[i,] = np.zeros((IMG_SIZE, IMG_SIZE, CHANNELS))
+                y[i] = 0
+
+        return X, y
+
+def scan_dataset(caminho_imagens, caminho_csv):
+    """Varre as pastas e cria a lista de pacientes validos"""
+    print(" Indexando dataset (lendo CSV e pastas)...")
     
-    header = lista_de_headers[0]
-    try:
-        # Regra 1: Tem que ter bastante fatia (evita Scout/Raio-X)
-        if len(lista_de_headers) < 10: return False 
-        
-        # Regra 2: Tem que ser AXIAL (corte transversal)
-        if 'AXIAL' not in header.ImageType: return False
-        
-        # Regra 3: Não pode ser LOCALIZER
-        if 'LOCALIZER' in header.ImageType: return False
-        
-        return True
-    except Exception:
-        return False
-
-def processar_e_salvar_serie(path_da_serie, nomes_dos_arquivos_dcm, mapa_de_labels, pasta_0, pasta_1):
-    """
-    Lê os DICOMs, transforma em Volume 3D e salva como .npy
-    """
-    fatias_headers = []
+    df = pd.read_csv(caminho_csv, encoding='latin-1')
+    df = df.drop_duplicates(subset=['UID dicom'])
+    mapa = df.set_index('UID dicom')['Contraste'].to_dict()
     
-    # 1. Leitura Rápida (Só Headers)
-    for nome_arquivo in nomes_dos_arquivos_dcm:
-        caminho_completo = os.path.join(path_da_serie, nome_arquivo)
-        try:
-            dcm = pydicom.dcmread(caminho_completo, stop_before_pixels=True)
-            fatias_headers.append(dcm)
-        except Exception: pass 
-
-    if not fatias_headers: return
-
-    # 2. O MATCH (Verifica se está na planilha)
-    try:
-        study_id = fatias_headers[0].StudyInstanceUID
-    except AttributeError: return
-    
-    label = mapa_de_labels.get(study_id)
-    
-    # Se não achou na planilha ou o label não é 0/1, ignora
-    if label not in [0, 1]: return
-
-    # 3. FILTRO DE QUALIDADE
-    if not e_uma_serie_valida(fatias_headers): return 
-
-    # 4. LEITURA DOS PIXELS (Só agora gasta memória)
-    # print(f"Processando ID: {study_id[:15]}... (Label {label})")
-    fatias_full = []
-    for h in fatias_headers:
-        try:
-            d = pydicom.dcmread(h.filename)
-            if hasattr(d, 'pixel_array'): fatias_full.append(d)
-        except: pass
-    
-    if not fatias_full: return
-    
-    try:
-        # Ordena as fatias pela posição
-        fatias_full.sort(key=lambda x: int(x.InstanceNumber))
-        
-        # Empilha em 3D
-        vol = np.stack([f.pixel_array for f in fatias_full])
-        
-        # Define onde salvar
-        nome_arq = f"{fatias_full[0].SeriesInstanceUID}.npy"
-        path_destino = pasta_1 if label == 1 else pasta_0
-        arquivo_final = os.path.join(path_destino, nome_arq)
-        
-        # Salva
-        np.save(arquivo_final, vol)
-        print(f"Salvo: {nome_arq} (Label {label})")
-        
-    except Exception as e:
-        print(f"Erro ao salvar volume: {e}")
-
-
-# --- A FUNÇÃO PRINCIPAL (Que a Main vai chamar) ---
-
-def executar_fase2(caminho_imagens, caminho_csv):
-    """
-    Recebe os caminhos da MAIN e executa o processamento.
-    """
-    print(f"\n" + "="*40)
-    print(f"FASE 2: PREPARAÇÃO DE DADOS")
-    print(f"Imagens: {caminho_imagens}")
-    print(f"CSV: {caminho_csv}")
-    print("="*40 + "\n")
-    
-    # 1. Carregar Gabarito
-    mapa = carregar_mapa_de_labels(caminho_csv, 'UID dicom', 'Contraste')
-    if mapa is None: return
-
-    # 2. Criar Pastas de Saída (Sempre locais, onde o script roda)
-    path_ds = os.path.join(os.getcwd(), "dataset")
-    p0 = os.path.join(path_ds, "0_sem_contraste")
-    p1 = os.path.join(path_ds, "1_com_contraste")
-    
-    os.makedirs(p0, exist_ok=True)
-    os.makedirs(p1, exist_ok=True)
-
-    print(f"Iniciando varredura e conversão para .npy...")
-    print(f"Os arquivos serão salvos em: {path_ds}\n")
-
+    paths = []
+    labels = {}
     count = 0
-    # 3. O Loop (Walk)
-    for root, dirs, files in os.walk(caminho_imagens):
-        dcms = [f for f in files if f.endswith('.dcm')]
-        if dcms:
-            processar_e_salvar_serie(root, dcms, mapa, p0, p1)
-            count += 1
-            # Um print a cada 50 séries para você saber que não travou
-            if count % 50 == 0: print(f"... {count} pastas analisadas ...")
-
-    print(f"\nFASE 2 CONCLUÍDA! Verifique a pasta 'dataset'.")
-
-
-# --- MODO DE TESTE LOCAL ---
-# Isso permite rodar esse arquivo sozinho no PC sem a main
-if __name__ == "__main__":
-    # Caminhos do PC para teste
-    teste_img = 'C:/Users/reyno/USP2025/pacientes/'
-    teste_csv = 'C:/Users/reyno/USP2025/IC_imagens/imagens_medicas/patIDStudy_contrast.csv'
     
-    if os.path.exists(teste_img):
-        executar_fase2(teste_img, teste_csv)
-    else:
-        print("Caminho de teste não encontrado no PC.")
+    for root, _, files in os.walk(caminho_imagens):
+        dcms = [f for f in files if f.endswith('.dcm')]
+        if len(dcms) > 10:
+            try:
+                # Validação rápida pelo header
+                first = pydicom.dcmread(os.path.join(root, dcms[0]), stop_before_pixels=True)
+                uid = first.StudyInstanceUID
+                
+                # Filtros
+                if 'AXIAL' not in first.ImageType: continue
+                if uid not in mapa: continue
+                if mapa[uid] not in [0, 1]: continue
+                
+                paths.append(root)
+                labels[root] = mapa[uid]
+                count += 1
+            except: continue
+            
+            
+    print(f" Indexado: {len(paths)} pacientes encontrados.")
+    return paths, labels
