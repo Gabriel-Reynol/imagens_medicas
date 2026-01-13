@@ -1,46 +1,86 @@
 import os
-import pydicom
 import pandas as pd
+import pydicom
+import fase2_mapeamento  # usando a lógica REAL do projeto
 
-PATH_PACIENTES = 'C:/Users/reyno/USP2025/pacientes/'
-PATH_PLANILHA = 'C:/Users/reyno/USP2025/IC_imagens/imagens_medicas/patIDStudy_contrast.csv'
-COLUNA_ID = 'UID dicom' 
+# --- CONFIGURAÇÃO DE CAMINHOS (Igual à Main) ---
+SERVER_PATH = '/Storage/jerogalsky-2024'
+PC_PATH = 'C:/Users/reyno/USP2025/pacientes/' # caminho local
 
-print("--- DIAGNÓSTICO DE IDS ---")
+if os.path.exists(SERVER_PATH):
+    print(" MODO SERVIDOR DETECTADO")
+    CAMINHO_IMG = SERVER_PATH
+    CAMINHO_CSV = '/home/jerogalsky/IC_PAOLA/patIDStudy_contrast_VPaola.csv'
+else:
+    print(" MODO PC LOCAL DETECTADO")
+    CAMINHO_IMG = PC_PATH
+    # Ajuste aqui se necessário para o caminho do seu CSV no PC
+    CAMINHO_CSV = 'C:/Users/reyno/USP2025/IC_imagens/imagens_medicas/patIDStudy_contrast.csv' 
 
-# 1. Mostra como estão os IDs na Planilha
-try:
-    df = pd.read_csv(PATH_PLANILHA)
-    df[COLUNA_ID] = df[COLUNA_ID].astype(str).str.strip() # Limpa espaços extras
-    exemplos_csv = df[COLUNA_ID].head(3).tolist()
-    print(f"\n[PLANILHA] Primeiros 3 IDs encontrados na coluna '{COLUNA_ID}':")
-    for ex in exemplos_csv:
-        print(f"   -> {ex}")
-except Exception as e:
-    print(f"Erro ao ler planilha: {e}")
+def gerar_relatorio():
+    print("\n" + "="*50)
+    print(" INICIANDO AUDITORIA DO DATASET")
+    print("="*50)
 
-# 2. Mostra como estão os IDs no DICOM (entrando na primeira pasta que achar)
-print(f"\n[DICOM] Procurando um arquivo DICOM para ler...")
-encontrou = False
+    # 1. Pega EXATAMENTE o que o treino vai usar
+    # Isso garante que estamos auditando a lógica real, não uma simulação
+    paths, labels_dict = fase2_mapeamento.scan_dataset(CAMINHO_IMG, CAMINHO_CSV)
 
-for root, dirs, files in os.walk(PATH_PACIENTES):
-    for f in files:
-        if f.endswith('.dcm'):
-            path_dcm = os.path.join(root, f)
-            try:
-                dcm = pydicom.dcmread(path_dcm, stop_before_pixels=True)
-                
-                print(f"   Arquivo lido: {f}")
-                print(f"   -> SeriesInstanceUID: {dcm.SeriesInstanceUID}")
-                print(f"   -> StudyInstanceUID:  {dcm.StudyInstanceUID}")
-                print("\nCOMPARAR: Qual desses dois (Series ou Study) se parece com o da Planilha?")
-                
-                encontrou = True
-                break # Para tudo, só precisamos ver um
-            except:
-                pass
-    if encontrou:
-        break
+    if not paths:
+        print(" Nenhum paciente encontrado. Verifique os caminhos.")
+        return
 
-if not encontrou:
-    print("Não achei nenhum arquivo .dcm para testar.")
+    print(f"\n Gerando relatório para {len(paths)} exames selecionados...")
+    
+    dados_relatorio = []
+
+    for i, folder_path in enumerate(paths):
+        try:
+            # Pega o primeiro DCM da pasta só para ler o UID
+            arquivos = [f for f in os.listdir(folder_path) if f.endswith('.dcm')]
+            qtd_arquivos = len(arquivos)
+            
+            if qtd_arquivos > 0:
+                first_dcm = pydicom.dcmread(os.path.join(folder_path, arquivos[0]), stop_before_pixels=True)
+                uid_dicom = str(first_dcm.StudyInstanceUID).strip()
+            else:
+                uid_dicom = "ERRO_PASTA_VAZIA"
+
+            # Busca o label que o sistema atribuiu
+            label = labels_dict[folder_path]
+            classe_nome = "COM CONTRASTE" if label == 1 else "SEM CONTRASTE"
+
+            # Adiciona na lista
+            dados_relatorio.append({
+                'Index': i + 1,
+                'UID_no_DICOM': uid_dicom,
+                'Classe_Atribuida': label,
+                'Descricao': classe_nome,
+                'Qtd_Imagens': qtd_arquivos,
+                'Pasta_Escolhida': folder_path
+            })
+            
+            # Barra de progresso visual simples
+            if i % 50 == 0:
+                print(f"   Processado: {i}/{len(paths)}...")
+
+        except Exception as e:
+            print(f" Erro ao ler pasta {folder_path}: {e}")
+
+    # 2. Salva em CSV para você abrir no Excel
+    nome_arquivo = "auditoria_dataset_final.csv"
+    df_resultado = pd.DataFrame(dados_relatorio)
+    df_resultado.to_csv(nome_arquivo, index=False, sep=';') # Ponto e vírgula para abrir fácil no Excel BR
+
+    print("\n" + "="*50)
+    print(f" RELATÓRIO CONCLUÍDO!")
+    print(f" Arquivo salvo: {nome_arquivo}")
+    print("="*50)
+    print("Abra este arquivo e confira se os UIDs batem com o esperado.")
+    
+    # Mostra uma amostra grátis no terminal
+    print("\n--- Amostra dos 5 primeiros ---")
+    print(df_resultado[['UID_no_DICOM', 'Classe_Atribuida', 'Qtd_Imagens']].head().to_string())
+
+if __name__ == "__main__":
+    gerar_relatorio()
