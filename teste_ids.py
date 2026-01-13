@@ -14,7 +14,6 @@ if os.path.exists(SERVER_PATH):
 else:
     print(" MODO PC LOCAL DETECTADO")
     CAMINHO_IMG = PC_PATH
-    # Ajuste aqui se necessário para o caminho do seu CSV no PC
     CAMINHO_CSV = 'C:/Users/reyno/USP2025/IC_imagens/imagens_medicas/patIDStudy_contrast.csv' 
 
 def gerar_relatorio():
@@ -67,10 +66,10 @@ def gerar_relatorio():
         except Exception as e:
             print(f" Erro ao ler pasta {folder_path}: {e}")
 
-    # 2. Salva em CSV para você abrir no Excel
+    # 2. Salva em CSV para abrir no Excel
     nome_arquivo = "auditoria_dataset_final.csv"
     df_resultado = pd.DataFrame(dados_relatorio)
-    df_resultado.to_csv(nome_arquivo, index=False, sep=';') # Ponto e vírgula para abrir fácil no Excel BR
+    df_resultado.to_csv(nome_arquivo, index=False, sep=';')
 
     print("\n" + "="*50)
     print(f" RELATÓRIO CONCLUÍDO!")
