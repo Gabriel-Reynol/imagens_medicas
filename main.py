@@ -47,7 +47,7 @@ print(f" Dados: {len(X_train)} treino | {len(X_val)} validação")
 unique_classes = np.unique(y_train)
 pesos = class_weight.compute_class_weight(class_weight='balanced', classes=unique_classes, y=y_train)
 class_weights_dict = dict(zip(unique_classes, pesos))
-print(f"⚖️ Pesos das classes: {class_weights_dict}")
+print(f" Pesos das classes: {class_weights_dict}")
 
 # --- 4. INSTANCIAR GERADORES ---
 # O Gerador agora vai transformar DICOM -> 2D RGB na hora
