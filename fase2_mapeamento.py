@@ -107,6 +107,9 @@ def scan_dataset(caminho_imagens, caminho_csv):
     print(f" Selecionando melhores séries de {len(exames_candidatos)} exames...")
     
     for study_uid, lista_de_series in exames_candidatos.items():
+
+        if len(lista_de_series) < 2:
+             continue  # Pula para o próximo exame, ignorando este
         # Quem tem mais arquivos ganha
         melhor_serie = max(lista_de_series, key=lambda x: x[1])
         caminho = melhor_serie[0]
