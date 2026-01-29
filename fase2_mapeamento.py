@@ -90,7 +90,7 @@ def scan_dataset(caminho_imagens, caminho_csv):
     print(" Varrendo pastas...")
     for root, _, files in os.walk(caminho_imagens):
         dcms = [f for f in files if f.endswith('.dcm')]
-        if len(dcms) >= 30:
+        if len(dcms) > 15:
             try:
                 first = pydicom.dcmread(os.path.join(root, dcms[0]), stop_before_pixels=True)
                 study_uid = str(first.StudyInstanceUID).strip().replace('\x00', '')
