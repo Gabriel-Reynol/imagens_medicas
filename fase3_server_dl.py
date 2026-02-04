@@ -1,31 +1,47 @@
 import pandas as pd
 import tensorflow as tf
+import datetime
+import os
+import matplotlib.pyplot as plt
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
 def executar_treino(train_gen, val_gen, epochs, class_weights=None):
+    # 1. Configuração de Pastas e Timestamp
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    pasta_resultado = f"resultados_treinos/treino_{timestamp}"
+    os.makedirs(pasta_resultado, exist_ok=True) # Cria a pasta se não existir
+
     print(f"\n" + "="*40)
-    print(f"FASE 3: TREINAMENTO COM RESNET50")
+    print(f" SALVANDO TUDO EM: {pasta_resultado}")
     print("="*40 + "\n")
 
     IMG_SIZE = 224
     LR = 0.0001
 
-    # 1. Construir ResNet50
-    print("Carregando ResNet50 (ImageNet weights)...")
+    # --- SALVAR CONFIGURAÇÕES (Para o Relatório) ---
+    with open(f"{pasta_resultado}/config_run.txt", "w") as f:
+        f.write(f"DATA: {timestamp}\n")
+        f.write(f"MODELO: ResNet50 (Transfer Learning)\n")
+        f.write(f"EPOCHS: {epochs}\n")
+        f.write(f"LEARNING RATE: {LR}\n")
+        f.write(f"IMG SIZE: {IMG_SIZE}\n")
+        f.write(f"PESOS DAS CLASSES: {class_weights}\n")
+        f.write(f"BATCH SIZE: {train_gen.batch_size}\n")
+        f.write(f"QTD TREINO: {len(train_gen.list_IDs)}\n")
     
-    # Input Shape: (224, 224, 3)
-    base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(IMG_SIZE, IMG_SIZE, 3)) # Transfer learning
-    base_model.trainable = False  # Congela a base para não destruir os pesos pré-treinados
-
-    # 2. Cabeçalho Personalizado 
-    x = base_model.output                   # Pega o que a resnet enxergou
-    x = GlobalAveragePooling2D()(x)         # Resume a informação
-    x = Dense(128, activation='relu')(x)    
-    x = Dropout(0.5)(x)                     # Evita vício
-    output = Dense(1, activation='sigmoid')(x) 
+    # 2. Construir Modelo
+    print("  Construindo ResNet50...")
+    base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(IMG_SIZE, IMG_SIZE, 3))
+    base_model.trainable = False 
+    
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    output = Dense(1, activation='sigmoid')(x)
 
     model = Model(inputs=base_model.input, outputs=output)
 
@@ -34,26 +50,49 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
                   metrics=['accuracy', tf.keras.metrics.AUC(name='auc')])
 
     # 3. Rodar Treino
-    print("Iniciando FIT...")
-    
+    print(" Iniciando FIT...")
     history = model.fit(
         train_gen,
         validation_data=val_gen,
         epochs=epochs,
-        class_weight=class_weights, # Recebe os pesos calculados na Main
+        class_weight=class_weights,
         verbose=1
     )
 
-    # 4. Salvar com DATA e HORA (Segurança para não sobrescrever)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # 4. SALVAMENTO COMPLETO
+    print("\n Salvando artefatos...")
     
-    nome_modelo = f"modelo_resnet_contraste_{timestamp}.keras"
-    nome_csv = f"historico_treino_{timestamp}.csv"
+    # A) Salvar Modelo
+    model.save(f"{pasta_resultado}/modelo_resnet.keras")
     
-    print("\n Salvando resultados...")
-    model.save(nome_modelo)
-    pd.DataFrame(history.history).to_csv(nome_csv)
+    # B) Salvar Histórico CSV
+    hist_df = pd.DataFrame(history.history)
+    hist_df.to_csv(f"{pasta_resultado}/historico_metrics.csv", index=False)
+
+    # C) GERAR GRÁFICOS 
+    # Backend Agg é necessário para salvar gráficos em servidor sem tela
+    plt.switch_backend('Agg') 
     
-    print(f"Treino concluído!")
-    print(f"   --> Modelo salvo: {nome_modelo}")
-    print(f"   --> Histórico salvo: {nome_csv}")
+    # Gráfico de Acurácia
+    plt.figure()
+    plt.plot(hist_df['accuracy'], label='Treino')
+    plt.plot(hist_df['val_accuracy'], label='Validação')
+    plt.title(f'Acurácia - {timestamp}')
+    plt.xlabel('Épocas')
+    plt.ylabel('Acurácia')
+    plt.legend()
+    plt.savefig(f"{pasta_resultado}/grafico_acuracia.png")
+    plt.close()
+
+    # Gráfico de Loss (Erro)
+    plt.figure()
+    plt.plot(hist_df['loss'], label='Treino')
+    plt.plot(hist_df['val_loss'], label='Validação')
+    plt.title(f'Loss (Erro) - {timestamp}')
+    plt.xlabel('Épocas')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.savefig(f"{pasta_resultado}/grafico_loss.png")
+    plt.close()
+    
+    print(f" TUDO SALVO COM SUCESSO EM: {pasta_resultado}")
