@@ -21,7 +21,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     IMG_SIZE = 224
     LR = 0.0001
 
-    # --- SALVAR CONFIGURAÇÕES (Para o Relatório) ---
+    # -- SALVAR CONFIGURAÇÕES (Para o Relatório) --
     with open(f"{pasta_resultado}/config_run.txt", "w") as f:
         f.write(f"DATA: {timestamp}\n")
         f.write(f"MODELO: ResNet50 (Transfer Learning)\n")

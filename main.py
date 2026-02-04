@@ -16,9 +16,12 @@ PC_PATH = 'C:/Users/reyno/USP2025/pacientes/'
 if os.path.exists(SERVER_PATH):
     print(" MODO SERVIDOR")
     CAMINHO_IMG = SERVER_PATH
+
     # Caminhos ATUALIZADOS para os seus 2 CSVs
-    CAMINHO_CSV_COM = '/home/jerogalsky/tabelasSeparadas/planilha_uid_contraste.csv'
-    CAMINHO_CSV_SEM = '/home/jerogalsky/tabelasSeparadas/planilha_uid_SC.csv'
+    PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
+    CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv')
+    CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
+    
     EPOCHS = 30
     BATCH_SIZE = 32
 else:
