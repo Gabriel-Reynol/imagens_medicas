@@ -10,11 +10,11 @@ def unificar_planilhas(csv_com, csv_sem):
     print("📋 Lendo planilhas de exames (Study UIDs)...")
     
     # Procura pela coluna que identifica o EXAME (Study)
-    possiveis_colunas = ['Study Instance UID', 'UID dicom', 'StudyInstanceUID', 'StudyID']
+    possiveis_colunas = ['Study Instance UID', 'UID dicom', 'StudyInstanceUID', 'StudyID', '_id']
     
     def carregar(caminho, label):
         try:
-            df = pd.read_csv(caminho, encoding='latin-1')
+            df = pd.read_csv(caminho, encoding='latin-1', sep=None, engine='python')
         except FileNotFoundError:
             print(f"ERRO: Arquivo não encontrado: {caminho}")
             return {}
