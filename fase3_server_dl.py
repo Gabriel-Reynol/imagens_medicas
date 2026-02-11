@@ -19,7 +19,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     print("="*40 + "\n")
 
     IMG_SIZE = 224
-    LR = 0.0001
+    LR = 0.00001
 
     # -- SALVAR CONFIGURAÇÕES (Para o Relatório) --
     with open(f"{pasta_resultado}/config_run.txt", "w") as f:
@@ -35,7 +35,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     # 2. Construir Modelo
     print("  Construindo ResNet50...")
     base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(IMG_SIZE, IMG_SIZE, 3))
-    base_model.trainable = False 
+    base_model.trainable = True 
     
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
