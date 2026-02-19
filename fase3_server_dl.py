@@ -7,13 +7,14 @@ from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, RandomFlip, RandomRotation, RandomZoom, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
 
 def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     # 1. Configuração de Pastas e Timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     pasta_resultado = f"resultados_treinos/treino_{timestamp}"
-    os.makedirs(pasta_resultado, exist_ok=True) # Cria a pasta se não existir
+    os.makedirs(pasta_resultado, exist_ok=True)
 
     print(f"\n" + "="*40)
     print(f" SALVANDO TUDO EM: {pasta_resultado}")
@@ -32,23 +33,19 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
         f.write(f"PESOS DAS CLASSES: {class_weights}\n")
         f.write(f"BATCH SIZE: {train_gen.batch_size}\n")
         f.write(f"QTD TREINO: {len(train_gen.list_IDs)}\n")
-    
+        f.write(f"QTD VALIDACAO: {len(val_gen.list_IDs)}\n")
+
     # 2. Construir Modelo com Data Augmentation
     print("  Construindo ResNet50 com Data Augmentation...")
-    
-    # Baixa a ResNet50
+
     base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(IMG_SIZE, IMG_SIZE, 3))
-    base_model.trainable = True 
-    
-    # --- A MÁGICA DO AUGMENTATION AQUI ---
+    base_model.trainable = True
+
     inputs = Input(shape=(IMG_SIZE, IMG_SIZE, 3))
-    
-    # A cada época, a imagem sofre pequenas alterações aleatórias:
-    x = RandomFlip("horizontal")(inputs) # Espelha horizontalmente às vezes
-    x = RandomRotation(0.1)(x)           # Gira até 10% para os lados
-    x = RandomZoom(0.1)(x)               # Dá um leve zoom de até 10%
-    
-    # Passa a imagem "mexida" para a ResNet estudar
+    x = RandomFlip("horizontal")(inputs)
+    x = RandomRotation(0.1)(x)
+    x = RandomZoom(0.1)(x)
+
     x = base_model(x)
     x = GlobalAveragePooling2D()(x)
     x = Dense(128, activation='relu')(x)
@@ -56,36 +53,62 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     output = Dense(1, activation='sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=output)
-    # --------------------------------------
 
-    model.compile(optimizer=Adam(learning_rate=LR),
-                  loss='binary_crossentropy',
-                  metrics=['accuracy', tf.keras.metrics.AUC(name='auc')])
+    model.compile(
+        optimizer=Adam(learning_rate=LR),
+        loss='binary_crossentropy',
+        metrics=['accuracy', tf.keras.metrics.AUC(name='auc')]
+    )
 
-    # 3. Rodar Treino
+    # 3. Callbacks (mínimo, mas muito efetivo)
+    ckpt_path = os.path.join(pasta_resultado, "modelo_melhor_val_auc.keras")
+    callbacks = [
+        ModelCheckpoint(
+            filepath=ckpt_path,
+            monitor="val_auc",
+            mode="max",
+            save_best_only=True,
+            verbose=1
+        ),
+        EarlyStopping(
+            monitor="val_auc",
+            mode="max",
+            patience=6,
+            restore_best_weights=True,
+            verbose=1
+        ),
+        ReduceLROnPlateau(
+            monitor="val_auc",
+            mode="max",
+            factor=0.5,
+            patience=2,
+            min_lr=1e-7,
+            verbose=1
+        ),
+    ]
+
+    # 4. Rodar Treino
     print(" Iniciando FIT...")
     history = model.fit(
         train_gen,
         validation_data=val_gen,
         epochs=epochs,
         class_weight=class_weights,
+        callbacks=callbacks,
         verbose=1
     )
 
-    # 4. SALVAMENTO COMPLETO
+    # 5. Salvamento
     print("\n Salvando artefatos...")
-    
-    # A) Salvar Modelo
-    model.save(f"{pasta_resultado}/modelo_resnet.keras")
-    
-    # B) Salvar Histórico CSV
+
+    # Salva o modelo final também (além do melhor)
+    model.save(f"{pasta_resultado}/modelo_final.keras")
+
     hist_df = pd.DataFrame(history.history)
     hist_df.to_csv(f"{pasta_resultado}/historico_metrics.csv", index=False)
 
-    # C) GERAR GRÁFICOS 
-    # Backend Agg é necessário para salvar gráficos em servidor sem tela
-    plt.switch_backend('Agg') 
-    
+    plt.switch_backend('Agg')
+
     # Gráfico de Acurácia
     plt.figure()
     plt.plot(hist_df['accuracy'], label='Treino')
@@ -97,7 +120,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     plt.savefig(f"{pasta_resultado}/grafico_acuracia.png")
     plt.close()
 
-    # Gráfico de Loss (Erro)
+    # Gráfico de Loss
     plt.figure()
     plt.plot(hist_df['loss'], label='Treino')
     plt.plot(hist_df['val_loss'], label='Validação')
@@ -107,5 +130,18 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     plt.legend()
     plt.savefig(f"{pasta_resultado}/grafico_loss.png")
     plt.close()
-    
+
+    # Gráfico de AUC
+    if 'auc' in hist_df.columns and 'val_auc' in hist_df.columns:
+        plt.figure()
+        plt.plot(hist_df['auc'], label='Treino')
+        plt.plot(hist_df['val_auc'], label='Validação')
+        plt.title(f'AUC - {timestamp}')
+        plt.xlabel('Épocas')
+        plt.ylabel('AUC')
+        plt.legend()
+        plt.savefig(f"{pasta_resultado}/grafico_auc.png")
+        plt.close()
+
     print(f" TUDO SALVO COM SUCESSO EM: {pasta_resultado}")
+    print(f" Melhor modelo salvo em: {ckpt_path}")

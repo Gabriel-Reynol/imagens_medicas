@@ -4,13 +4,14 @@ import pydicom
 import cv2
 import tensorflow as tf
 import numpy as np
+import math
 
 def unificar_planilhas(csv_com, csv_sem):
     """
     Lê os dois arquivos CSV e cria um dicionário de IDs de ESTUDOS (Exames).
     Retorna: { 'UID_Estudo_123': 1, 'UID_Estudo_456': 0, ... }
     """
-    print("📋 Lendo planilhas de exames (Study UIDs)...")
+    print(" Lendo planilhas de exames (Study UIDs)...")
     
     # Procura pela coluna que identifica o EXAME (Study)
     possiveis_colunas = ['Study Instance UID', 'UID dicom', 'StudyInstanceUID', 'StudyID', '_id']
@@ -104,6 +105,7 @@ def scan_dataset_logica(caminho_imagens, csv_com, csv_sem):
     print(f"3. EXAMES SELECIONADOS PARA TREINO:  {len(final_paths)}")
     print("="*45)
     
+    final_paths = sorted(final_paths)
     return final_paths, final_labels
 
 # --- CLASSE GERADORA DE DADOS (CORRIGIDA PARA LER PASTAS) ---
@@ -118,7 +120,8 @@ class MedicalDataGenerator(tf.keras.utils.Sequence):
         self.on_epoch_end()
 
     def __len__(self):
-        return int(np.floor(len(self.list_IDs) / self.batch_size))
+        return math.ceil(len(self.list_IDs) / self.batch_size)
+
 
     def __getitem__(self, index):
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
@@ -132,8 +135,9 @@ class MedicalDataGenerator(tf.keras.utils.Sequence):
             np.random.shuffle(self.indexes)
 
     def __data_generation(self, list_IDs_temp):
-        X = np.empty((self.batch_size, *self.dim, self.n_channels))
-        y = np.empty((self.batch_size), dtype=int)
+        cur_bs = len(list_IDs_temp)
+        X = np.empty((cur_bs, *self.dim, self.n_channels), dtype=np.float32)
+        y = np.empty((cur_bs,), dtype=np.int32)
 
         for i, ID in enumerate(list_IDs_temp):
             # ID aqui é o caminho da PASTA (root) vindo do scan_dataset_logica
@@ -167,9 +171,8 @@ class MedicalDataGenerator(tf.keras.utils.Sequence):
                 
             except Exception as e:
                 print(f"Erro ao ler {ID}: {e}")
-                # Retorna imagem preta em caso de erro
-                X[i,] = np.zeros((*self.dim, 3))
-                y[i] = 0 
+                X[i] = np.zeros((*self.dim, 3), dtype=np.float32)
+                y[i] = self.labels.get(ID, 0)
 
         return X, y
 
