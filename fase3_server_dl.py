@@ -61,7 +61,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     )
 
     # 3. Callbacks (mínimo, mas muito efetivo)
-    ckpt_path = os.path.join(pasta_resultado, "modelo_melhor_val_auc.keras")
+    ckpt_path = os.path.join(pasta_resultado, "modelo_melhor_val_auc.h5")
     callbacks = [
         ModelCheckpoint(
             filepath=ckpt_path,
@@ -102,7 +102,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     print("\n Salvando artefatos...")
 
     # Salva o modelo final também (além do melhor)
-    model.save(f"{pasta_resultado}/modelo_final.keras")
+    model.save(f"{pasta_resultado}/modelo_final.h5")
 
     hist_df = pd.DataFrame(history.history)
     hist_df.to_csv(f"{pasta_resultado}/historico_metrics.csv", index=False)
