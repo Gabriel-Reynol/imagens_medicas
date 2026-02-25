@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 from collections import Counter
@@ -55,6 +54,28 @@ X_train, X_val, y_train, y_val = train_test_split(
     random_state=42
 )
 
+# ===============================
+# OVERSAMPLING (SÓ NO TREINO)
+# ===============================
+print("\n[OVERSAMPLING] Balanceando classe minoritária no treino...")
+
+ids_pos = [p for p in X_train if labels_dict[p] == 1]
+ids_neg = [p for p in X_train if labels_dict[p] == 0]
+
+print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
+
+if len(ids_pos) > 0:
+    mult = len(ids_neg) // len(ids_pos)   # ex: 932//48 = 19
+    X_train_bal = ids_neg + ids_pos * mult
+    np.random.shuffle(X_train_bal)
+    print(f"  Depois: Negativos={len(ids_neg)} | Positivos={len(ids_pos)*mult} | Total={len(X_train_bal)}")
+else:
+    print("  AVISO: Nenhum positivo encontrado no treino.")
+    X_train_bal = X_train
+
+c_train_bal = Counter([labels_dict[p] for p in X_train_bal])
+print(f"   Treino BAL - Sem Contraste (0): {c_train_bal[0]} | Com Contraste (1): {c_train_bal[1]} | Total: {len(X_train_bal)}")
+
 # Relatório de distribuição
 c_train = Counter(y_train)
 c_val = Counter(y_val)
@@ -77,8 +98,8 @@ print(f"  Pesos das classes calculados: {class_weights_dict}")
 print("  Criando geradores de imagem...")
 
 # Boa prática:
-train_gen = fase2.MedicalDataGenerator(X_train, labels_dict, batch_size=BATCH_SIZE, shuffle=True) #ordem dos exames muda a cada época
-val_gen   = fase2.MedicalDataGenerator(X_val,   labels_dict, batch_size=BATCH_SIZE, shuffle=False) #ordem fixa
+train_gen = fase2.MedicalDataGenerator(X_train_bal, labels_dict, batch_size=BATCH_SIZE, shuffle=True) #ordem dos exames muda a cada época
+val_gen   = fase2.MedicalDataGenerator(X_val, labels_dict, batch_size=BATCH_SIZE, shuffle=False) #ordem fixa
 
 # --- 5. TREINO ---
 fase3_server_dl.executar_treino(train_gen, val_gen, EPOCHS, class_weights_dict)
