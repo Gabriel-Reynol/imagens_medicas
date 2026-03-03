@@ -10,9 +10,9 @@ plt.switch_backend('Agg')
 
 # --- CONFIGURAÇÕES ---
 PASTA_RESULTADO = '/home/jerogalsky/projeto_gabriel/imagens_medicas/resultados_treinos/treino_20260225_160829'
-# ^^^ troque para a pasta do treino atual
+#a pasta do treino atual
 
-# Preferir o melhor modelo, se existir
+# Prefere o melhor modelo, se existir
 ARQUIVO_MODELO_MELHOR = os.path.join(PASTA_RESULTADO, 'modelo_melhor_val_auc.h5')
 ARQUIVO_MODELO_FINAL  = os.path.join(PASTA_RESULTADO, 'modelo_final.h5')
 
@@ -23,7 +23,7 @@ elif os.path.exists(ARQUIVO_MODELO_FINAL):
 else:
     raise FileNotFoundError("Não encontrei modelo melhor nem modelo final na pasta.")
 
-# --- Detecta ambiente e caminhos (igual você já faz) ---
+# --- Detecta ambiente e caminhos ---
 SERVER_PATH = '/Storage/jerogalsky-2024'
 PC_PATH = 'C:/Users/reyno/USP2025/pacientes/'
 
