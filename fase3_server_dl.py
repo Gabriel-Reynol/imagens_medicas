@@ -145,3 +145,5 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
 
     print(f" TUDO SALVO COM SUCESSO EM: {pasta_resultado}")
     print(f" Melhor modelo salvo em: {ckpt_path}")
+
+    return pasta_resultado

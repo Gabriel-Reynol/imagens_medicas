@@ -9,20 +9,21 @@ import fase2_v2 as fase2
 plt.switch_backend('Agg')
 
 # --- CONFIGURAÇÕES ---
-PASTA_RESULTADO = '/home/jerogalsky/projeto_gabriel/imagens_medicas/resultados_treinos/treino_20260216_184905'
+PASTA_RESULTADO = '/home/jerogalsky/projeto_gabriel/imagens_medicas/resultados_treinos/treino_20260225_160829'
+# ^^^ troque para a pasta do treino atual
 
 # Preferir o melhor modelo, se existir
 ARQUIVO_MODELO_MELHOR = os.path.join(PASTA_RESULTADO, 'modelo_melhor_val_auc.h5')
 ARQUIVO_MODELO_FINAL  = os.path.join(PASTA_RESULTADO, 'modelo_final.h5')
-ARQUIVO_MODELO_ANTIGO = os.path.join(PASTA_RESULTADO, 'modelo_resnet.h5')
 
 if os.path.exists(ARQUIVO_MODELO_MELHOR):
     ARQUIVO_MODELO = ARQUIVO_MODELO_MELHOR
 elif os.path.exists(ARQUIVO_MODELO_FINAL):
     ARQUIVO_MODELO = ARQUIVO_MODELO_FINAL
 else:
-    ARQUIVO_MODELO = ARQUIVO_MODELO_ANTIGO
+    raise FileNotFoundError("Não encontrei modelo melhor nem modelo final na pasta.")
 
+# --- Detecta ambiente e caminhos (igual você já faz) ---
 SERVER_PATH = '/Storage/jerogalsky-2024'
 PC_PATH = 'C:/Users/reyno/USP2025/pacientes/'
 
@@ -40,59 +41,54 @@ else:
     CAMINHO_CSV_SEM = 'C:/Users/reyno/USP2025/planilha_uid_SC.csv'
     BATCH_SIZE = 4
 
-# --- 1) CARREGAR DADOS ---
-print("\n Carregando lista de exames...")
+# --- 1) Recria labels_dict (mapeia pasta -> label) ---
+print("\n Carregando lista de exames (para obter labels_dict)...")
 paths, labels_dict = fase2.scan_dataset_logica(CAMINHO_IMG, CAMINHO_CSV_COM, CAMINHO_CSV_SEM)
 
-# CRÍTICO: mesma regra da main para split reprodutível
-paths = sorted(paths)
+# --- 2) Carrega o TESTE salvo pela main (70/20/10) ---
+X_TEST_PATH = os.path.join(PASTA_RESULTADO, "X_test.npy")
+Y_TEST_PATH = os.path.join(PASTA_RESULTADO, "y_test.npy")
 
-from sklearn.model_selection import train_test_split
-labels_list = [labels_dict[p] for p in paths]
-_, X_val, _, y_val = train_test_split(
-    paths, labels_list,
-    test_size=0.2,
-    stratify=labels_list,
-    random_state=42
-)
+if not (os.path.exists(X_TEST_PATH) and os.path.exists(Y_TEST_PATH)):
+    raise FileNotFoundError(
+        f"Não achei X_test.npy / y_test.npy em {PASTA_RESULTADO}. "
+        "Confirme que sua main salvou esses arquivos."
+    )
 
-print(f" Total de Exames na Validação: {len(X_val)}")
+X_test = np.load(X_TEST_PATH, allow_pickle=True).tolist()
+y_test = np.load(Y_TEST_PATH, allow_pickle=True).astype(np.int32)
 
-val_gen = fase2.MedicalDataGenerator(X_val, labels_dict, batch_size=BATCH_SIZE, shuffle=False)
+print(f" Total de Exames no TESTE: {len(X_test)}")
 
-# --- 2) CARREGAR MODELO ---
+test_gen = fase2.MedicalDataGenerator(X_test, labels_dict, batch_size=BATCH_SIZE, shuffle=False)
+
+# --- 3) Carregar modelo ---
 print(f"\n Carregando modelo: {ARQUIVO_MODELO}")
-if not os.path.exists(ARQUIVO_MODELO):
-    raise FileNotFoundError(f"ERRO: Não achei o modelo em: {ARQUIVO_MODELO}")
-
 model = load_model(ARQUIVO_MODELO)
 print(" Modelo carregado com sucesso!")
 
-# --- 3) PREDIÇÕES ---
-print("\n Realizando inferência...")
-predictions = model.predict(val_gen, verbose=1).ravel()
+# --- 4) Predições ---
+print("\n Realizando inferência no TESTE...")
+predictions = model.predict(test_gen, verbose=1).ravel()
 predicted_classes = (predictions > 0.5).astype(np.int32)
 
-#  o generator agora não descarta batch
-true_classes = np.array([labels_dict[x] for x in X_val], dtype=np.int32)
+true_classes = y_test
 
 if len(true_classes) != len(predicted_classes):
     raise RuntimeError(
-        f"ERRO: Tamanhos diferentes! true={len(true_classes)} pred={len(predicted_classes)}. "
-        "Verifique se o generator está atualizado (ceil + batch dinâmico)."
+        f"ERRO: Tamanhos diferentes! true={len(true_classes)} pred={len(predicted_classes)}."
     )
 
-# --- 4) RELATÓRIOS ---
+# --- 5) Relatórios ---
 print("\n" + "="*40)
-print(" RELATÓRIO FINAL DE PERFORMANCE")
+print(" RELATÓRIO FINAL DE PERFORMANCE (TESTE)")
 print("="*40)
 
-#matriz de confusão
 cm = confusion_matrix(true_classes, predicted_classes)
 print("\nMatriz de Confusão:")
 print(cm)
 
-#plotar matriz
+# Matriz
 plt.figure(figsize=(8, 6))
 sns.heatmap(
     cm, annot=True, fmt='d', cmap='Blues',
@@ -101,20 +97,25 @@ sns.heatmap(
 )
 plt.xlabel('Predição do Modelo')
 plt.ylabel('Realidade (Gabarito)')
-plt.title('Matriz de Confusão - Validação')
-plt.savefig(f"{PASTA_RESULTADO}/matriz_confusao.png")
-print(f" Gráfico salvo em: {PASTA_RESULTADO}/matriz_confusao.png")
+plt.title('Matriz de Confusão - TESTE')
+plt.savefig(f"{PASTA_RESULTADO}/matriz_confusao_teste.png")
+plt.close()
+print(f" Gráfico salvo em: {PASTA_RESULTADO}/matriz_confusao_teste.png")
 
-#relatório texto
-report = classification_report(true_classes, predicted_classes, target_names=['Sem Contraste', 'Com Contraste'])
+# Classification report
+report = classification_report(
+    true_classes, predicted_classes,
+    target_names=['Sem Contraste', 'Com Contraste'],
+    zero_division=0
+)
 print("\nResumo Detalhado:")
 print(report)
 
-#salvar relatório em texto
-with open(f"{PASTA_RESULTADO}/relatorio_metrics.txt", "w") as f:
+with open(f"{PASTA_RESULTADO}/relatorio_metrics_teste.txt", "w") as f:
     f.write(report)
     f.write(f"\n\nMatriz de Confusão:\n{cm}")
 
+# ROC / AUC
 fpr, tpr, thresholds = roc_curve(true_classes, predictions)
 roc_auc = auc(fpr, tpr)
 
@@ -123,7 +124,8 @@ plt.plot(fpr, tpr, lw=2, label=f'Curva ROC (area = {roc_auc:.2f})')
 plt.plot([0, 1], [0, 1], lw=2, linestyle='--')
 plt.xlabel('Taxa de Falsos Positivos')
 plt.ylabel('Taxa de Verdadeiros Positivos')
-plt.title('Receiver Operating Characteristic (ROC)')
+plt.title('ROC - TESTE')
 plt.legend(loc="lower right")
-plt.savefig(f"{PASTA_RESULTADO}/curva_roc.png")
-print(f" Curva ROC salva em: {PASTA_RESULTADO}/curva_roc.png")
+plt.savefig(f"{PASTA_RESULTADO}/curva_roc_teste.png")
+plt.close()
+print(f" Curva ROC salva em: {PASTA_RESULTADO}/curva_roc_teste.png")
