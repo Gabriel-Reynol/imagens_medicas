@@ -11,7 +11,7 @@ IMG_SIZE = (224, 224)
 
 def carregar_fatia_central_e_preprocessar(pasta_ou_arquivo: str, dim=(224,224)):
     """
-    Replica fielmente o que seu MedicalDataGenerator faz:
+    Replica fielmente o que o MedicalDataGenerator faz:
     - pega fatia central se for pasta
     - lê pixel_array
     - normaliza min-max
