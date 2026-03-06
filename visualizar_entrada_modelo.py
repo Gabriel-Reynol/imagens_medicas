@@ -5,7 +5,7 @@ import pydicom
 import cv2
 
 # ====== CONFIGURE AQUI ======
-PASTA_EXAME = "/Storage/jerogalsky-2024/0024925I/1.2.840.113704.1.111.1652.1518019283.1/1.2.840.113704.1.111.1652.1518019328.3/"  
+PASTA_EXAME = "/Storage/jerogalsky-2024/0006950G/1.2.840.113704.1.111.1348.1440592299.1/1.2.840.113704.1.111.1348.1440592406.11/"  
 IMG_SIZE = (224, 224)
 # ============================
 
@@ -17,7 +17,12 @@ def carregar_fatia_central_e_preprocessar(pasta_ou_arquivo: str, dim=(224,224)):
     - normaliza min-max
     - resize para 224x224
     - stack 3 canais (RGB fake)
-    Retorna: img_3c (224,224,3) float32 e caminho do arquivo lido
+
+    Retorna:
+    - img_original: imagem original lida do DICOM
+    - img_3c: imagem final (224,224,3)
+    - arquivo_lido
+    - mn, mx
     """
     arquivo_para_ler = pasta_ou_arquivo
 
@@ -32,12 +37,14 @@ def carregar_fatia_central_e_preprocessar(pasta_ou_arquivo: str, dim=(224,224)):
             raise RuntimeError("Passe uma pasta com DICOMs ou um arquivo .dcm")
 
     ds = pydicom.dcmread(arquivo_para_ler)
-    img = ds.pixel_array.astype(np.float32)
+
+    # imagem original
+    img_original = ds.pixel_array.astype(np.float32)
 
     # min-max
-    mn = float(np.min(img))
-    mx = float(np.max(img))
-    img_norm = (img - mn) / (mx - mn + 1e-6)
+    mn = float(np.min(img_original))
+    mx = float(np.max(img_original))
+    img_norm = (img_original - mn) / (mx - mn + 1e-6)
 
     # resize 224x224
     img_resized = cv2.resize(img_norm, dim, interpolation=cv2.INTER_LINEAR).astype(np.float32)
@@ -45,27 +52,36 @@ def carregar_fatia_central_e_preprocessar(pasta_ou_arquivo: str, dim=(224,224)):
     # 3 canais (RGB fake)
     img_3c = np.stack((img_resized,)*3, axis=-1).astype(np.float32)
 
-    return img_3c, arquivo_para_ler, mn, mx
+    return img_original, img_3c, arquivo_para_ler, mn, mx
 
 def main():
-    img_3c, arquivo_lido, mn, mx = carregar_fatia_central_e_preprocessar(PASTA_EXAME, dim=IMG_SIZE)
+    img_original, img_3c, arquivo_lido, mn, mx = carregar_fatia_central_e_preprocessar(PASTA_EXAME, dim=IMG_SIZE)
 
     print("=== CONFIRMAÇÃO DO QUE O MODELO RECEBE ===")
     print(f"Arquivo DICOM lido: {arquivo_lido}")
+    print(f"Shape original: {img_original.shape}")
     print(f"Shape final: {img_3c.shape}  (esperado: (224,224,3))")
-    print(f"Dtype: {img_3c.dtype}        (esperado: float32)")
+    print(f"Dtype final: {img_3c.dtype}        (esperado: float32)")
     print(f"Range final (min/max): {img_3c.min():.6f} / {img_3c.max():.6f}  (esperado ~ 0..1)")
     print(f"Min/Max originais (antes do min-max): {mn:.3f} / {mx:.3f}")
 
-    # 1) Mostrar exatamente o tensor 3 canais (parece cinza, mas é RGB replicado)
+    # 1) Mostrar imagem original
     plt.figure(figsize=(6, 6))
-    plt.imshow(img_3c)  # mostra como "RGB" (mesmo sendo 3 canais iguais)
+    plt.imshow(img_original, cmap="gray")
+    plt.title("Imagem original (DICOM)")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+    # 2) Mostrar imagem final em RGB fake
+    plt.figure(figsize=(6, 6))
+    plt.imshow(img_3c)
     plt.title("Entrada do modelo (RGB replicado)")
     plt.axis("off")
     plt.tight_layout()
     plt.show()
 
-    # 2) Mostrar um canal (equivalente) em cinza
+    # 3) Mostrar um canal da imagem final
     plt.figure(figsize=(6, 6))
     plt.imshow(img_3c[:, :, 0], cmap="gray")
     plt.title("Entrada do modelo (canal 0 em cinza)")
@@ -73,16 +89,13 @@ def main():
     plt.tight_layout()
     plt.show()
 
-    # 3) Checar se os canais são mesmo iguais (deveria dar 0)
+    # 4) Checar se os canais são mesmo iguais
     dif01 = np.max(np.abs(img_3c[:, :, 0] - img_3c[:, :, 1]))
     dif12 = np.max(np.abs(img_3c[:, :, 1] - img_3c[:, :, 2]))
     print(f"Máx diferença canal0-canal1: {dif01:.8f}")
     print(f"Máx diferença canal1-canal2: {dif12:.8f}")
 
-    # 4)salva a imagem final pra usar no relatório
-    out_png = "exemplo_entrada_modelo.png"
-    plt.imsave(out_png, img_3c[:, :, 0], cmap="gray")
-    print(f"Imagem salva para relatório: {out_png}")
-
-if __name__ == "__main__":
-    main()
+    # 5) Salvar imagens separadas
+    plt.imsave("imagem_original_dicom.png", img_original, cmap="gray")
+    plt.imsave("exemplo_entrada_modelo.png", img_3c[:, :, 0], cmap="gray")
+    print("Imagens salvas para relatório: imagem_original_dicom.png e exemplo_entrada_modelo.png")
