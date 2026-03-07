@@ -98,4 +98,7 @@ def main():
     # 5) Salvar imagens separadas
     plt.imsave("imagem_original_dicom.png", img_original, cmap="gray")
     plt.imsave("exemplo_entrada_modelo.png", img_3c[:, :, 0], cmap="gray")
-    print("Imagens salvas para relatório: imagem_original_dicom.png e exemplo_entrada_modelo.png")
+    print("Imagens salvas para relatório: imagem_original_dicom.png e exemplo_entrada_modelo.png") 
+    
+if __name__ == "__main__":
+    main()
