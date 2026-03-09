@@ -76,9 +76,9 @@ print(f"   Val   (20%)  - Sem (0): {c_val[0]}   | Com (1): {c_val[1]}   | Total:
 print(f"   Teste (10%)  - Sem (0): {c_test[0]}  | Com (1): {c_test[1]}  | Total: {len(X_test)}")
 
 # ===============================
-# OVERSAMPLING (SÓ NO TREINO)
+# OVERSAMPLING CONTROLADO (SÓ NO TREINO)
 # ===============================
-print("\n[OVERSAMPLING] Balanceando classe minoritária no TREINO...")
+print("\n[OVERSAMPLING CONTROLADO] Balanceando classe minoritária no TREINO...")
 
 ids_pos = [p for p in X_train if labels_dict[p] == 1]
 ids_neg = [p for p in X_train if labels_dict[p] == 0]
@@ -86,9 +86,16 @@ ids_neg = [p for p in X_train if labels_dict[p] == 0]
 print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
 
 if len(ids_pos) > 0:
-    mult = len(ids_neg) // len(ids_pos)  # ex: 816//42 = 19
-    X_train_bal = ids_neg + ids_pos * mult
-    np.random.shuffle(X_train_bal)
+    alvo_pos = 250  
+    rng = np.random.default_rng(42)
+
+    if len(ids_pos) >= alvo_pos:
+        ids_pos_bal = rng.choice(ids_pos, size=alvo_pos, replace=False).tolist()
+    else:
+        ids_pos_bal = rng.choice(ids_pos, size=alvo_pos, replace=True).tolist()
+
+    X_train_bal = ids_neg + ids_pos_bal
+    rng.shuffle(X_train_bal)
 else:
     print("  AVISO: Nenhum positivo encontrado no treino.")
     X_train_bal = X_train
