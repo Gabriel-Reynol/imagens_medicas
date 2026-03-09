@@ -52,7 +52,7 @@ X_tmp, X_test, y_tmp, y_test = train_test_split(
     paths, labels_list,
     test_size=0.10,
     stratify=labels_list,
-    random_state=7
+    random_state=123
 )
 
 # 2) separa TREINO/VAL dentro do restante (90%)
@@ -63,7 +63,7 @@ X_train, X_val, y_train, y_val = train_test_split(
     X_tmp, y_tmp,
     test_size=val_ratio,
     stratify=y_tmp,
-    random_state=7
+    random_state=123
 )
 
 print("\n RELATÓRIO DO DATASET (ANTES DO OVERSAMPLING)")
@@ -74,6 +74,9 @@ c_test  = Counter(y_test)
 print(f"   Treino (70%) - Sem (0): {c_train[0]} | Com (1): {c_train[1]} | Total: {len(X_train)}")
 print(f"   Val   (20%)  - Sem (0): {c_val[0]}   | Com (1): {c_val[1]}   | Total: {len(X_val)}")
 print(f"   Teste (10%)  - Sem (0): {c_test[0]}  | Com (1): {c_test[1]}  | Total: {len(X_test)}")
+print("\nExemplos do TESTE:")
+for p in X_test[:5]:
+    print(p)
 
 # ===============================
 # OVERSAMPLING (SÓ NO TREINO)
