@@ -20,7 +20,7 @@ if os.path.exists(SERVER_PATH):
     CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
 
     EPOCHS = 30
-    BATCH_SIZE = 8
+    BATCH_SIZE = 16
 else:
     print(" MODO PC LOCAL (Teste)")
     CAMINHO_IMG = PC_PATH
@@ -76,26 +76,21 @@ print(f"   Val   (20%)  - Sem (0): {c_val[0]}   | Com (1): {c_val[1]}   | Total:
 print(f"   Teste (10%)  - Sem (0): {c_test[0]}  | Com (1): {c_test[1]}  | Total: {len(X_test)}")
 
 # ===============================
-# UNDERSAMPLING (SÓ NO TREINO)
+# OVERSAMPLING (SÓ NO TREINO)
 # ===============================
-print("\n[UNDERSAMPLING] Balanceando classe majoritária no TREINO...")
+print("\n[OVERSAMPLING] Balanceando classe minoritária no TREINO...")
 
 ids_pos = [p for p in X_train if labels_dict[p] == 1]
 ids_neg = [p for p in X_train if labels_dict[p] == 0]
 
 print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
 
-if len(ids_pos) > 0 and len(ids_neg) > 0:
-    n_min = min(len(ids_pos), len(ids_neg))
-
-    rng = np.random.default_rng(42)
-    ids_pos_bal = rng.choice(ids_pos, size=n_min, replace=False).tolist()
-    ids_neg_bal = rng.choice(ids_neg, size=n_min, replace=False).tolist()
-
-    X_train_bal = ids_pos_bal + ids_neg_bal
-    rng.shuffle(X_train_bal)
+if len(ids_pos) > 0:
+    mult = len(ids_neg) // len(ids_pos)  # ex: 816//42 = 19
+    X_train_bal = ids_neg + ids_pos * mult
+    np.random.shuffle(X_train_bal)
 else:
-    print("  AVISO: Uma das classes não está presente no treino.")
+    print("  AVISO: Nenhum positivo encontrado no treino.")
     X_train_bal = X_train
 
 c_train_bal = Counter([labels_dict[p] for p in X_train_bal])
