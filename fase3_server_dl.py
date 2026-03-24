@@ -39,17 +39,17 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     print("  Construindo ResNet50 com Data Augmentation...")
 
     base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(IMG_SIZE, IMG_SIZE, 3))
-    base_model.trainable = True
+    base_model.trainable = False
 
     inputs = Input(shape=(IMG_SIZE, IMG_SIZE, 3))
     x = RandomFlip("horizontal")(inputs)
-    x = RandomRotation(0.1)(x)
-    x = RandomZoom(0.1)(x)
+    x = RandomRotation(0.03)(x)
+    x = RandomZoom(0.05)(x)
 
     x = base_model(x)
     x = GlobalAveragePooling2D()(x)
     x = Dense(64, activation='relu')(x)
-    x = Dropout(0.3)(x)
+    x = Dropout(0.5)(x)
     output = Dense(1, activation='sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=output)
