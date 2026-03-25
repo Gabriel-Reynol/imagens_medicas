@@ -6,6 +6,13 @@ import tensorflow as tf
 import numpy as np
 import math
 
+def aplicar_janela(img_hu, center, width):
+    low = center - width / 2
+    high = center + width / 2
+    img = np.clip(img_hu, low, high)
+    img = (img - low) / (high - low + 1e-6)
+    return img.astype(np.float32)
+
 def unificar_planilhas(csv_com, csv_sem):
     """
     Lê os dois arquivos CSV e cria um dicionário de IDs de ESTUDOS (Exames).
@@ -155,23 +162,32 @@ class MedicalDataGenerator(tf.keras.utils.Sequence):
 
                 # 1. Ler DICOM
                 ds = pydicom.dcmread(arquivo_para_ler)
-                img = ds.pixel_array.astype(float)
-                
-                # 2. Normalizar (Janelamento simples ou MinMax)
-                img = (img - np.min(img)) / (np.max(img) - np.min(img) + 1e-6)
-                
-                # 3. Resize para 224x224
-                img = cv2.resize(img, self.dim)
-                
-                # 4. Empilhar canais (Grayscale -> RGB fake)
-                img = np.stack((img,)*3, axis=-1)
+                img = ds.pixel_array.astype(np.float32)
+
+                # 2. Converter para HU
+                slope = float(getattr(ds, 'RescaleSlope', 1.0))
+                intercept = float(getattr(ds, 'RescaleIntercept', 0.0))
+                img_hu = img * slope + intercept
+
+                # 3. Aplicar 3 janelamentos no mesmo corte
+                img_pulmao = aplicar_janela(img_hu, center=-600, width=1500)
+                img_mediastino = aplicar_janela(img_hu, center=40, width=400)
+                img_extra = aplicar_janela(img_hu, center=100, width=700)
+
+                # 4. Resize
+                img_pulmao = cv2.resize(img_pulmao, self.dim)
+                img_mediastino = cv2.resize(img_mediastino, self.dim)
+                img_extra = cv2.resize(img_extra, self.dim)
+
+                # 5. Empilhar canais
+                img = np.stack([img_pulmao, img_mediastino, img_extra], axis=-1)
                 
                 X[i,] = img
                 y[i] = self.labels[ID] # Label associado à pasta
                 
             except Exception as e:
                 print(f"Erro ao ler {ID}: {e}")
-                X[i] = np.zeros((*self.dim, 3), dtype=np.float32)
+                X[i] = np.zeros((*self.dim, self.n_channels), dtype=np.float32)
                 y[i] = self.labels.get(ID, 0)
 
         return X, y
@@ -179,11 +195,11 @@ class MedicalDataGenerator(tf.keras.utils.Sequence):
 # --- BLOCO DE TESTE ---
 if __name__ == "__main__":
     
-    PASTA_IMAGENS = '/Storage/jerogalsky-2024'
+    PASTA_IMAGENS = '/Storage/jerogalsky-2025'
     PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
     
-    ARQUIVO_COM = os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv')
-    ARQUIVO_SEM = os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
+    ARQUIVO_COM = os.path.join(PASTA_CSVS, 'hc-2025_exames_contraste_novo.csv')
+    ARQUIVO_SEM = os.path.join(PASTA_CSVS, 'hc-2025_exames_semcontraste_novo.csv')
     
     if os.path.exists(ARQUIVO_COM) and os.path.exists(ARQUIVO_SEM):
         paths, labels = scan_dataset_logica(PASTA_IMAGENS, ARQUIVO_COM, ARQUIVO_SEM)
