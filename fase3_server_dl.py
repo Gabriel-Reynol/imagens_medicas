@@ -46,7 +46,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     x = RandomRotation(0.03)(x)
     x = RandomZoom(0.05)(x)
 
-    x = base_model(x)
+    x = base_model(x, training=False)
     x = GlobalAveragePooling2D()(x)
     x = Dense(64, activation='relu')(x)
     x = Dropout(0.5)(x)
