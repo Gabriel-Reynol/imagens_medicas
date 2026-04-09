@@ -9,7 +9,7 @@ import fase2_v2 as fase2
 plt.switch_backend('Agg')
 
 # --- CONFIGURAÇÕES ---
-PASTA_RESULTADO = '/home/jerogalsky/projeto_gabriel/imagens_medicas/resultados_treinos/treino_20260225_160829'
+PASTA_RESULTADO = '/home/jerogalsky/projeto_gabriel/imagens_medicas/resultados_treinos/treino_base_antiga'
 #a pasta do treino atual
 
 # Prefere o melhor modelo, se existir
