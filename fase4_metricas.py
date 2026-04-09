@@ -24,15 +24,19 @@ else:
     raise FileNotFoundError("Não encontrei modelo melhor nem modelo final na pasta.")
 
 # --- Detecta ambiente e caminhos ---
-SERVER_PATH = '/Storage/jerogalsky-2025'
+#SERVER_PATH = '/Storage/jerogalsky-2025'
+SERVER_PATH = '/Storage/jerogalsky-2024'
 PC_PATH = 'C:/Users/reyno/USP2025/pacientes/'
 
 if os.path.exists(SERVER_PATH):
     print("--- MODO SERVIDOR DETECTADO ---")
     CAMINHO_IMG = SERVER_PATH
     PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
-    CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'hc-2025_exames_contraste_novo.csv')
-    CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'hc-2025_exames_semcontraste_novo.csv')
+    CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv')
+    CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
+    
+    #CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'hc-2025_exames_contraste_novo.csv')
+    #CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'hc-2025_exames_semcontraste_novo.csv')
     BATCH_SIZE = 32
 else:
     print("--- MODO PC LOCAL DETECTADO ---")
