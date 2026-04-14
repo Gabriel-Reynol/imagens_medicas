@@ -111,9 +111,26 @@ print("\n Criando geradores...")
 train_gen = fase2.MedicalDataGenerator(X_train, labels_dict, batch_size=BATCH_SIZE, shuffle=True)
 val_gen   = fase2.MedicalDataGenerator(X_val,       labels_dict, batch_size=BATCH_SIZE, shuffle=False)
 
-# --- 5. TREINO (SEM PESOS) ---
-# Note: class_weights=None
-pasta_resultado = fase3_server_dl.executar_treino(train_gen, val_gen, EPOCHS, class_weights=None)
+# --- 5. CLASS WEIGHTS + TREINO ---
+n_neg = c_train[0]
+n_pos = c_train[1]
+n_total = n_neg + n_pos
+
+class_weights = {
+    0: n_total / (2 * n_neg),
+    1: n_total / (2 * n_pos)
+}
+
+print("\n CLASS WEIGHTS")
+print(f"   Classe 0 (Sem Contraste): {class_weights[0]:.4f}")
+print(f"   Classe 1 (Com Contraste): {class_weights[1]:.4f}")
+
+pasta_resultado = fase3_server_dl.executar_treino(
+    train_gen,
+    val_gen,
+    EPOCHS,
+    class_weights=class_weights
+)
 
 # (Opcional) salvar split do teste para a fase4 usar exatamente o mesmo
 np.save(os.path.join(pasta_resultado, "X_test.npy"), np.array(X_test, dtype=object))
