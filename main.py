@@ -88,44 +88,34 @@ for p in X_test[:5]:
 # ===============================
 # OVERSAMPLING (SÓ NO TREINO)
 # ===============================
-#print("\n[OVERSAMPLING] Balanceando classe minoritária no TREINO...")
-#
-#ids_pos = [p for p in X_train if labels_dict[p] == 1]
-#ids_neg = [p for p in X_train if labels_dict[p] == 0]
-#
-#print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
-#
-#if len(ids_pos) > 0:
-#    mult = len(ids_neg) // len(ids_pos)  # ex: 816//42 = 19
-#    X_train_bal = ids_neg + ids_pos * mult
-#    np.random.shuffle(X_train_bal)
-#else:
-#    print("  AVISO: Nenhum positivo encontrado no treino.")
-#    X_train_bal = X_train
-#
-#c_train_bal = Counter([labels_dict[p] for p in X_train_bal])
-#print(f"  Depois: Sem (0)={c_train_bal[0]} | Com (1)={c_train_bal[1]} | Total={len(X_train_bal)}")
+print("\n[OVERSAMPLING] Balanceando classe minoritária no TREINO...")
+
+ids_pos = [p for p in X_train if labels_dict[p] == 1]
+ids_neg = [p for p in X_train if labels_dict[p] == 0]
+
+print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
+
+if len(ids_pos) > 0:
+    mult = len(ids_neg) // len(ids_pos)  # ex: 816//42 = 19
+    X_train_bal = ids_neg + ids_pos * mult
+    np.random.shuffle(X_train_bal)
+else:
+    print("  AVISO: Nenhum positivo encontrado no treino.")
+    X_train_bal = X_train
+
+c_train_bal = Counter([labels_dict[p] for p in X_train_bal])
+print(f"  Depois: Sem (0)={c_train_bal[0]} | Com (1)={c_train_bal[1]} | Total={len(X_train_bal)}")
 
 # --- 4. GERADORES ---
 print("\n Criando geradores...")
-train_gen = fase2.MedicalDataGenerator(X_train, labels_dict, batch_size=BATCH_SIZE, shuffle=True)
+train_gen = fase2.MedicalDataGenerator(X_train_bal, labels_dict, batch_size=BATCH_SIZE, shuffle=True)
 val_gen   = fase2.MedicalDataGenerator(X_val,       labels_dict, batch_size=BATCH_SIZE, shuffle=False)
 
-# --- 5. CLASS WEIGHTS + TREINO ---
-class_weights = {0: 1.0, 1: 6.0}
+# --- 5. SEM PESOS + OVERSAMPLING ---
+# Note: class_weights=None
+pasta_resultado = fase3_server_dl.executar_treino(train_gen, val_gen, EPOCHS, class_weights=None)
 
-print("\n CLASS WEIGHTS")
-print(f"   Classe 0 (Sem Contraste): {class_weights[0]:.4f}")
-print(f"   Classe 1 (Com Contraste): {class_weights[1]:.4f}")
-
-pasta_resultado = fase3_server_dl.executar_treino(
-    train_gen,
-    val_gen,
-    EPOCHS,
-    class_weights=class_weights
-)
-
-# (Opcional) salvar split do teste para a fase4 usar exatamente o mesmo
+# salvar split do teste para a fase4 usar exatamente o mesmo
 np.save(os.path.join(pasta_resultado, "X_test.npy"), np.array(X_test, dtype=object))
 np.save(os.path.join(pasta_resultado, "y_test.npy"), np.array(y_test, dtype=np.int32))
 
