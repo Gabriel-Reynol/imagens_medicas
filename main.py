@@ -112,7 +112,7 @@ train_gen = fase2.MedicalDataGenerator(X_train, labels_dict, batch_size=BATCH_SI
 val_gen   = fase2.MedicalDataGenerator(X_val,       labels_dict, batch_size=BATCH_SIZE, shuffle=False)
 
 # --- 5. CLASS WEIGHTS + TREINO ---
-class_weights = {0: 1.0, 1: 3.0}
+class_weights = {0: 1.0, 1: 6.0}
 
 print("\n CLASS WEIGHTS")
 print(f"   Classe 0 (Sem Contraste): {class_weights[0]:.4f}")
