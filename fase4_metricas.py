@@ -9,7 +9,7 @@ import fase2_v2 as fase2
 plt.switch_backend('Agg')
 
 # --- CONFIGURAÇÕES ---
-PASTA_RESULTADO = '/home/jerogalsky/projeto_gabriel/imagens_medicas/resultados_treinos/treino_base_antiga'
+PASTA_RESULTADO = '/home/jerogalsky/projeto_gabriel/imagens_medicas/resultados_treinos/treino_basesJuntas'
 #a pasta do treino atual
 
 # Prefere o melhor modelo, se existir
@@ -24,30 +24,71 @@ else:
     raise FileNotFoundError("Não encontrei modelo melhor nem modelo final na pasta.")
 
 # --- Detecta ambiente e caminhos ---
-#SERVER_PATH = '/Storage/jerogalsky-2025'
-SERVER_PATH = '/Storage/jerogalsky-2024'
 PC_PATH = 'C:/Users/reyno/USP2025/pacientes/'
 
-if os.path.exists(SERVER_PATH):
+SERVER_PATH_2024 = '/Storage/jerogalsky-2024'
+SERVER_PATH_2025 = '/Storage/jerogalsky-2025'
+
+if os.path.exists(SERVER_PATH_2024) or os.path.exists(SERVER_PATH_2025):
     print("--- MODO SERVIDOR DETECTADO ---")
-    CAMINHO_IMG = SERVER_PATH
+
     PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
-    CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv')
-    CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
-    
-    #CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'hc-2025_exames_contraste_novo.csv')
-    #CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'hc-2025_exames_semcontraste_novo.csv')
+
+    BASES = [
+        {
+            "nome": "Base 2024",
+            "caminho_img": SERVER_PATH_2024,
+            "csv_com": os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv'),
+            "csv_sem": os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
+        },
+        {
+            "nome": "Base 2025",
+            "caminho_img": SERVER_PATH_2025,
+            "csv_com": os.path.join(PASTA_CSVS, 'hc-2025_exames_contraste_novo.csv'),
+            "csv_sem": os.path.join(PASTA_CSVS, 'hc-2025_exames_semcontraste_novo.csv')
+        }
+    ]
+
     BATCH_SIZE = 32
+
 else:
     print("--- MODO PC LOCAL DETECTADO ---")
-    CAMINHO_IMG = PC_PATH
-    CAMINHO_CSV_COM = 'C:/Users/reyno/USP2025/planilha_uid_contraste.csv'
-    CAMINHO_CSV_SEM = 'C:/Users/reyno/USP2025/planilha_uid_SC.csv'
+
+    BASES = [
+        {
+            "nome": "Base local",
+            "caminho_img": PC_PATH,
+            "csv_com": 'C:/Users/reyno/USP2025/planilha_uid_contraste.csv',
+            "csv_sem": 'C:/Users/reyno/USP2025/planilha_uid_SC.csv'
+        }
+    ]
+
     BATCH_SIZE = 4
 
-# --- 1) Recria labels_dict (mapeia pasta -> label) ---
+# --- 1) Recria labels_dict juntando as bases ---
 print("\n Carregando lista de exames (para obter labels_dict)...")
-paths, labels_dict = fase2.scan_dataset_logica(CAMINHO_IMG, CAMINHO_CSV_COM, CAMINHO_CSV_SEM)
+
+paths = []
+labels_dict = {}
+
+for base in BASES:
+    print(f"\n Lendo {base['nome']}...")
+
+    paths_base, labels_base = fase2.scan_dataset_logica(
+        base["caminho_img"],
+        base["csv_com"],
+        base["csv_sem"]
+    )
+
+    print(f"   Exames válidos encontrados em {base['nome']}: {len(paths_base)}")
+
+    paths.extend(paths_base)
+    labels_dict.update(labels_base)
+
+if not paths:
+    raise ValueError("Nenhum exame encontrado! Verifique os caminhos das bases.")
+
+print(f"\n Total de exames válidos juntando as bases: {len(paths)}")
 
 # --- 2) Carrega o TESTE salvo pela main (70/20/10) ---
 X_TEST_PATH = os.path.join(PASTA_RESULTADO, "X_test.npy")
