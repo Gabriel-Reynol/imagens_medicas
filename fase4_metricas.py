@@ -92,6 +92,16 @@ cm = confusion_matrix(true_classes, predicted_classes)
 print("\nMatriz de Confusão:")
 print(cm)
 
+# --- Métricas derivadas da matriz de confusão ---
+tn, fp, fn, tp = cm.ravel()
+
+sensibilidade = tp / (tp + fn) if (tp + fn) > 0 else 0
+especificidade = tn / (tn + fp) if (tn + fp) > 0 else 0
+
+print("\nMétricas adicionais:")
+print(f"Sensibilidade (Com Contraste): {sensibilidade:.4f}")
+print(f"Especificidade (Sem Contraste): {especificidade:.4f}")
+
 # Matriz
 plt.figure(figsize=(8, 6))
 sns.heatmap(
@@ -118,6 +128,9 @@ print(report)
 with open(f"{PASTA_RESULTADO}/relatorio_metrics_teste.txt", "w") as f:
     f.write(report)
     f.write(f"\n\nMatriz de Confusão:\n{cm}")
+    f.write("\n\nMétricas adicionais:")
+    f.write(f"\nSensibilidade (Com Contraste): {sensibilidade:.4f}")
+    f.write(f"\nEspecificidade (Sem Contraste): {especificidade:.4f}")
 
 # ROC / AUC
 fpr, tpr, thresholds = roc_curve(true_classes, predictions)

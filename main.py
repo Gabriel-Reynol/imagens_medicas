@@ -8,31 +8,46 @@ import fase3_server_dl
 
 
 # --- 1. DETECÇÃO DE AMBIENTE ---
-SERVER_PATH = '/Storage/jerogalsky-2024'
-#SERVER_PATH = '/Storage/jerogalsky-2025' #Base nova
 
 PC_PATH = 'C:/Users/reyno/USP2025/pacientes/'
 
-if os.path.exists(SERVER_PATH):
+SERVER_PATH_2024 = '/Storage/jerogalsky-2024'
+SERVER_PATH_2025 = '/Storage/jerogalsky-2025'
+
+if os.path.exists(SERVER_PATH_2024) or os.path.exists(SERVER_PATH_2025):
     print(" MODO SERVIDOR")
-    CAMINHO_IMG = SERVER_PATH
 
     PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
-    CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv')
-    CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
-    
-    #base nova
-    #PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
-    #CAMINHO_CSV_COM = os.path.join(PASTA_CSVS, 'hc-2025_exames_contraste_novo.csv')
-    #CAMINHO_CSV_SEM = os.path.join(PASTA_CSVS, 'hc-2025_exames_semcontraste_novo.csv')
+
+    BASES = [
+        {
+            "nome": "Base 2024",
+            "caminho_img": SERVER_PATH_2024,
+            "csv_com": os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv'),
+            "csv_sem": os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
+        },
+        {
+            "nome": "Base 2025",
+            "caminho_img": SERVER_PATH_2025,
+            "csv_com": os.path.join(PASTA_CSVS, 'hc-2025_exames_contraste_novo.csv'),
+            "csv_sem": os.path.join(PASTA_CSVS, 'hc-2025_exames_semcontraste_novo.csv')
+        }
+    ]
 
     EPOCHS = 30
     BATCH_SIZE = 16
+
 else:
     print(" MODO PC LOCAL (Teste)")
-    CAMINHO_IMG = PC_PATH
-    CAMINHO_CSV_COM = 'C:/Users/reyno/USP2025/planilha_uid_contraste.csv'
-    CAMINHO_CSV_SEM = 'C:/Users/reyno/USP2025/planilha_uid_SC.csv'
+
+    BASES = [
+        {
+            "nome": "Base local",
+            "caminho_img": PC_PATH,
+            "csv_com": 'C:/Users/reyno/USP2025/planilha_uid_contraste.csv',
+            "csv_sem": 'C:/Users/reyno/USP2025/planilha_uid_SC.csv'
+        }
+    ]
 
     EPOCHS = 1
     BATCH_SIZE = 4
@@ -40,15 +55,34 @@ else:
 
 # --- 2. PREPARAÇÃO (Fase 2) ---
 print("\n Iniciando varredura e cruzamento de dados...")
-paths, labels_dict = fase2.scan_dataset_logica(CAMINHO_IMG, CAMINHO_CSV_COM, CAMINHO_CSV_SEM)
+
+paths = []
+labels_dict = {}
+
+for base in BASES:
+    print(f"\n Lendo {base['nome']}...")
+
+    paths_base, labels_base = fase2.scan_dataset_logica(
+        base["caminho_img"],
+        base["csv_com"],
+        base["csv_sem"]
+    )
+
+    print(f"   Exames válidos encontrados em {base['nome']}: {len(paths_base)}")
+
+    paths.extend(paths_base)
+    labels_dict.update(labels_base)
 
 if not paths:
-    raise ValueError("Nenhum exame encontrado! Verifique os caminhos.")
+    raise ValueError("Nenhum exame encontrado! Verifique os caminhos das bases.")
 
 paths = sorted(paths)
 labels_list = [labels_dict[p] for p in paths]
 
-print(f" Total de exames válidos: {len(paths)}")
+print(f"\n Total de exames válidos juntando as bases: {len(paths)}")
+
+c_total = Counter(labels_list)
+print(f"   Total geral - Sem (0): {c_total[0]} | Com (1): {c_total[1]} | Total: {len(paths)}")
 
 # ===============================
 # SPLIT 70/20/10 (Treino/Val/Teste)
