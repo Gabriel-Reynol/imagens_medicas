@@ -120,25 +120,25 @@ for p in X_test[:5]:
     print(p)
 
 # ===============================
-# OVERSAMPLING (SÓ NO TREINO)
+# OVERSAMPLING (SÓ NO TREINO) -> tirei
 # ===============================
-print("\n[OVERSAMPLING] Balanceando classe minoritária no TREINO...")
+#print("\n[OVERSAMPLING] Balanceando classe minoritária no TREINO...")
 
-ids_pos = [p for p in X_train if labels_dict[p] == 1]
-ids_neg = [p for p in X_train if labels_dict[p] == 0]
+#ids_pos = [p for p in X_train if labels_dict[p] == 1]
+#ids_neg = [p for p in X_train if labels_dict[p] == 0]
 
-print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
+#print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
 
-if len(ids_pos) > 0:
-    mult = len(ids_neg) // len(ids_pos)  # ex: 816//42 = 19
-    X_train_bal = ids_neg + ids_pos * mult
-    np.random.shuffle(X_train_bal)
-else:
-    print("  AVISO: Nenhum positivo encontrado no treino.")
-    X_train_bal = X_train
+#if len(ids_pos) > 0:
+#    mult = len(ids_neg) // len(ids_pos)  # ex: 816//42 = 19
+#    X_train_bal = ids_neg + ids_pos * mult
+#    np.random.shuffle(X_train_bal)
+#else:
+#    print("  AVISO: Nenhum positivo encontrado no treino.")
+X_train_bal = X_train
 
 c_train_bal = Counter([labels_dict[p] for p in X_train_bal])
-print(f"  Depois: Sem (0)={c_train_bal[0]} | Com (1)={c_train_bal[1]} | Total={len(X_train_bal)}")
+print(f"  Treino usado: Sem (0)={c_train_bal[0]} | Com (1)={c_train_bal[1]} | Total={len(X_train_bal)}")
 
 # --- 4. GERADORES ---
 print("\n Criando geradores...")
