@@ -20,12 +20,12 @@ if os.path.exists(SERVER_PATH_2024) or os.path.exists(SERVER_PATH_2025):
     PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
 
     BASES = [
-        {
-            "nome": "Base 2024",
-            "caminho_img": SERVER_PATH_2024,
-            "csv_com": os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv'),
-            "csv_sem": os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
-        },
+        #{
+           # "nome": "Base 2024",
+           # "caminho_img": SERVER_PATH_2024,
+           # "csv_com": os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv'),
+          #  "csv_sem": os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
+        #},
         {
             "nome": "Base 2025",
             "caminho_img": SERVER_PATH_2025,
@@ -79,7 +79,7 @@ if not paths:
 paths = sorted(paths)
 labels_list = [labels_dict[p] for p in paths]
 
-print(f"\n Total de exames válidos juntando as bases: {len(paths)}")
+print(f"\n Total de exames válidos: {len(paths)}")
 
 c_total = Counter(labels_list)
 print(f"   Total geral - Sem (0): {c_total[0]} | Com (1): {c_total[1]} | Total: {len(paths)}")
@@ -119,22 +119,6 @@ print("\nExemplos do TESTE:")
 for p in X_test[:5]:
     print(p)
 
-# ===============================
-# OVERSAMPLING (SÓ NO TREINO) -> tirei
-# ===============================
-#print("\n[OVERSAMPLING] Balanceando classe minoritária no TREINO...")
-
-#ids_pos = [p for p in X_train if labels_dict[p] == 1]
-#ids_neg = [p for p in X_train if labels_dict[p] == 0]
-
-#print(f"  Antes: Negativos={len(ids_neg)} | Positivos={len(ids_pos)}")
-
-#if len(ids_pos) > 0:
-#    mult = len(ids_neg) // len(ids_pos)  # ex: 816//42 = 19
-#    X_train_bal = ids_neg + ids_pos * mult
-#    np.random.shuffle(X_train_bal)
-#else:
-#    print("  AVISO: Nenhum positivo encontrado no treino.")
 X_train_bal = X_train
 
 c_train_bal = Counter([labels_dict[p] for p in X_train_bal])
@@ -145,7 +129,7 @@ print("\n Criando geradores...")
 train_gen = fase2.MedicalDataGenerator(X_train_bal, labels_dict, batch_size=BATCH_SIZE, shuffle=True)
 val_gen   = fase2.MedicalDataGenerator(X_val,       labels_dict, batch_size=BATCH_SIZE, shuffle=False)
 
-# --- 5. SEM PESOS + OVERSAMPLING ---
+# --- 5. SEM PESOS e SEM OVERSAMPLING ---
 # Note: class_weights=None
 pasta_resultado = fase3_server_dl.executar_treino(train_gen, val_gen, EPOCHS, class_weights=None)
 
