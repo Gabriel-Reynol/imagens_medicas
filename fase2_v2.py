@@ -169,16 +169,19 @@ class MedicalDataGenerator(tf.keras.utils.Sequence):
                 intercept = float(getattr(ds, 'RescaleIntercept', 0.0))
                 img_hu = img * slope + intercept
 
-                # 3. Aplicar uma única janela no mesmo corte
-                # Experimento baseline: janela mediastinal repetida nos 3 canais
+                # 3. Aplicar 3 janelamentos no mesmo corte
+                img_pulmao = aplicar_janela(img_hu, center=-600, width=1500)
                 img_mediastino = aplicar_janela(img_hu, center=40, width=400)
+                img_extra = aplicar_janela(img_hu, center=100, width=700)
 
                 # 4. Resize
+                img_pulmao = cv2.resize(img_pulmao, self.dim)
                 img_mediastino = cv2.resize(img_mediastino, self.dim)
+                img_extra = cv2.resize(img_extra, self.dim)
 
-                # 5. Repetir a mesma imagem nos 3 canais RGB
-                img = np.stack([img_mediastino, img_mediastino, img_mediastino], axis=-1)
-                
+                # 5. Empilhar canais RGB com janelamentos diferentes
+                img = np.stack([img_pulmao, img_mediastino, img_extra], axis=-1)
+                                
                 X[i,] = img
                 y[i] = self.labels[ID] # Label associado à pasta
                 

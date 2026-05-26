@@ -93,7 +93,7 @@ X_tmp, X_test, y_tmp, y_test = train_test_split(
     paths, labels_list,
     test_size=0.10,
     stratify=labels_list,
-    random_state=42
+    random_state=7
 )
 
 # 2) separa TREINO/VAL dentro do restante (90%)
@@ -104,7 +104,7 @@ X_train, X_val, y_train, y_val = train_test_split(
     X_tmp, y_tmp,
     test_size=val_ratio,
     stratify=y_tmp,
-    random_state=42
+    random_state=7
 )
 
 print("\n RELATÓRIO DO DATASET")
