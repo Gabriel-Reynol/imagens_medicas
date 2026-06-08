@@ -20,12 +20,12 @@ if os.path.exists(SERVER_PATH_2024) or os.path.exists(SERVER_PATH_2025):
     PASTA_CSVS = '/home/jerogalsky/tabelasSeparadas'
 
     BASES = [
-        #{
-           # "nome": "Base 2024",
-           # "caminho_img": SERVER_PATH_2024,
-           # "csv_com": os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv'),
-          #  "csv_sem": os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
-        #},
+        {
+            "nome": "Base 2024",
+            "caminho_img": SERVER_PATH_2024,
+            "csv_com": os.path.join(PASTA_CSVS, 'planilha_uid_contraste.csv'),
+            "csv_sem": os.path.join(PASTA_CSVS, 'planilha_uid_SC.csv')
+        },
         {
             "nome": "Base 2025",
             "caminho_img": SERVER_PATH_2025,
