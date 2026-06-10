@@ -169,11 +169,16 @@ class MedicalDataGenerator(tf.keras.utils.Sequence):
                 intercept = float(getattr(ds, 'RescaleIntercept', 0.0))
                 img_hu = img * slope + intercept
 
-                # 3. Aplicar 3x o mesmo
+                # 3. Aplicar três janelamentos distintos
+                img_pulmao = aplicar_janela(img_hu, center=-600, width=1500)
                 img_mediastino = aplicar_janela(img_hu, center=40, width=400)
-                img_mediastino = cv2.resize(img_mediastino, self.dim)
+                img_extra = aplicar_janela(img_hu, center=100, width=700)
 
-                img = np.stack([img_mediastino, img_mediastino, img_mediastino], axis=-1)
+                img_pulmao = cv2.resize(img_pulmao, self.dim)
+                img_mediastino = cv2.resize(img_mediastino, self.dim)
+                img_extra = cv2.resize(img_extra, self.dim)
+
+                img = np.stack([img_pulmao, img_mediastino, img_extra], axis=-1)
                                 
                 X[i,] = img
                 y[i] = self.labels[ID] # Label associado à pasta
