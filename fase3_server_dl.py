@@ -21,7 +21,7 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     print("="*40 + "\n")
 
     IMG_SIZE = 224
-    LR = 0.00001
+    LR = 0.000001
 
     # -- SALVAR CONFIGURAÇÕES (Para o Relatório) --
     with open(f"{pasta_resultado}/config_run.txt", "w") as f:
@@ -39,7 +39,10 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
     print("  Construindo ResNet50 com Data Augmentation...")
 
     base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(IMG_SIZE, IMG_SIZE, 3))
-    base_model.trainable = False
+    base_model.trainable = True
+
+    for layer in base_model.layers[:-30]:
+        layer.trainable = False
 
     inputs = Input(shape=(IMG_SIZE, IMG_SIZE, 3))
     x = RandomFlip("horizontal")(inputs)
@@ -59,6 +62,11 @@ def executar_treino(train_gen, val_gen, epochs, class_weights=None):
         loss='binary_crossentropy',
         metrics=['accuracy', tf.keras.metrics.AUC(name='auc')]
     )
+
+    print("Total de camadas da ResNet:", len(base_model.layers))
+    print("Camadas treináveis na ResNet:", sum([layer.trainable for layer in base_model.layers]))
+    print("Pesos treináveis no modelo:", len(model.trainable_weights))
+    print("Pesos não treináveis no modelo:", len(model.non_trainable_weights))
 
     # 3. Callbacks (mínimo, mas muito efetivo)
     ckpt_path = os.path.join(pasta_resultado, "modelo_melhor_val_auc.h5")
