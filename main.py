@@ -119,7 +119,26 @@ print("\nExemplos do TESTE:")
 for p in X_test[:5]:
     print(p)
 
-X_train_bal = X_train
+ids_sem = [p for p in X_train if labels_dict[p] == 0]
+ids_com = [p for p in X_train if labels_dict[p] == 1]
+
+print(f"Antes do undersampling: Sem={len(ids_sem)} | Com={len(ids_com)}")
+
+np.random.seed(42)
+
+ids_sem_reduzido = list(np.random.choice(
+    ids_sem,
+    size=len(ids_com),
+    replace=False
+))
+
+X_train_bal = ids_sem_reduzido + ids_com
+np.random.shuffle(X_train_bal)
+
+print(
+    f"Depois do undersampling: "
+    f"Sem={len(ids_sem_reduzido)} | Com={len(ids_com)} | Total={len(X_train_bal)}"
+)
 
 c_train_bal = Counter([labels_dict[p] for p in X_train_bal])
 print(f"  Treino usado: Sem (0)={c_train_bal[0]} | Com (1)={c_train_bal[1]} | Total={len(X_train_bal)}")
@@ -129,7 +148,7 @@ print("\n Criando geradores...")
 train_gen = fase2.MedicalDataGenerator(X_train_bal, labels_dict, batch_size=BATCH_SIZE, shuffle=True)
 val_gen   = fase2.MedicalDataGenerator(X_val,       labels_dict, batch_size=BATCH_SIZE, shuffle=False)
 
-# --- 5. SEM PESOS e SEM OVERSAMPLING ---
+# --- 5. SEM PESOS e COM UNDERSAMPLING ---
 # Note: class_weights=None
 pasta_resultado = fase3_server_dl.executar_treino(train_gen, val_gen, EPOCHS, class_weights=None)
 
