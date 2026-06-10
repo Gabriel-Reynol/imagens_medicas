@@ -1,4 +1,5 @@
 import os
+import random
 import numpy as np
 from sklearn.model_selection import train_test_split
 from collections import Counter
@@ -124,16 +125,12 @@ ids_com = [p for p in X_train if labels_dict[p] == 1]
 
 print(f"Antes do undersampling: Sem={len(ids_sem)} | Com={len(ids_com)}")
 
-np.random.seed(42)
+random.seed(42)
 
-ids_sem_reduzido = list(np.random.choice(
-    ids_sem,
-    size=len(ids_com),
-    replace=False
-))
+ids_sem_reduzido = random.sample(ids_sem, k=len(ids_com))
 
 X_train_bal = ids_sem_reduzido + ids_com
-np.random.shuffle(X_train_bal)
+random.shuffle(X_train_bal)
 
 print(
     f"Depois do undersampling: "
